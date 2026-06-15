@@ -143,6 +143,64 @@ def duplicate_variants(db: Session, owner_id: int) -> list[dict]:
     return results
 
 
+def library_matrix(db: Session, owner_id: int) -> dict:
+    """Compare ALL of the owner's libraries at once.
+
+    Returns one column per library and one row per track that is NOT present in
+    every library (the diffs). Each cell reports presence and the best format
+    held in that library, so missing copies (−) and upgrade context are visible
+    side by side.
+    """
+    libraries = list(
+        db.scalars(
+            select(Library).where(Library.owner_id == owner_id).order_by(Library.name)
+        )
+    )
+    lib_ids = [lib.id for lib in libraries]
+    libraries_out = [{"id": lib.id, "name": lib.name} for lib in libraries]
+
+    if len(lib_ids) < 1:
+        return {"libraries": libraries_out, "rows": [], "diff_count": 0, "total_tracks": 0}
+
+    variants = _owner_variants(db, owner_id)
+    best_by_track_lib: dict[int, dict[int, Variant]] = defaultdict(dict)
+    track_obj: dict[int, Track] = {}
+    for v in variants:
+        track_obj[v.track_id] = v.track
+        current = best_by_track_lib[v.track_id].get(v.library_id)
+        if current is None or variant_quality.quality_key(v) > variant_quality.quality_key(current):
+            best_by_track_lib[v.track_id][v.library_id] = v
+
+    rows = []
+    for track_id, lib_map in best_by_track_lib.items():
+        # Skip tracks present in every library — they are not a difference.
+        if len(lib_map) == len(lib_ids):
+            continue
+        track = track_obj[track_id]
+        presence = {}
+        for lib_id in lib_ids:
+            v = lib_map.get(lib_id)
+            presence[str(lib_id)] = {
+                "present": v is not None,
+                "format_label": variant_quality.format_label(v) if v else None,
+            }
+        rows.append(
+            {
+                "track": _track_label(track),
+                "present_count": len(lib_map),
+                "presence": presence,
+            }
+        )
+
+    rows.sort(key=lambda r: (r["track"]["artist"].lower(), r["track"]["title"].lower()))
+    return {
+        "libraries": libraries_out,
+        "rows": rows,
+        "diff_count": len(rows),
+        "total_tracks": len(best_by_track_lib),
+    }
+
+
 def quality_distribution(db: Session, owner_id: int, library_id: int | None = None) -> dict:
     """Count variants per quality tier (optionally scoped to one library)."""
     variants = _owner_variants(db, owner_id)

@@ -18,6 +18,28 @@ class TrackOut(BaseModel):
     created_at: datetime
 
 
+class TrackCollectionRef(BaseModel):
+    id: int
+    name: str
+    type: str
+
+
+class TrackLibraryRef(BaseModel):
+    id: int
+    name: str
+
+
+class TrackListItem(BaseModel):
+    """Track plus the libraries and collections it appears in (list view)."""
+
+    id: int
+    title: str
+    artist: str
+    manual: bool
+    libraries: list[TrackLibraryRef] = []
+    collections: list[TrackCollectionRef] = []
+
+
 class StreamingLinkOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  useCompareLibraries,
   useDuplicateVariants,
   useLibraries,
+  useLibraryMatrix,
   useMissingVariants,
   useQualityDistribution,
 } from "../api/hooks";
@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
           </button>
         ))}
       </div>
-      {tab === "compare" && <CompareTab />}
+      {tab === "compare" && <MatrixTab />}
       {tab === "missing-variants" && <MissingVariantsTab />}
       {tab === "duplicates" && <DuplicatesTab />}
       {tab === "quality" && <QualityTab />}
@@ -52,58 +52,73 @@ function TrackLink({ t }: { t: { id: number; artist: string; title: string } }) 
   );
 }
 
-function CompareTab() {
-  const libraries = useLibraries();
-  const [a, setA] = useState<number | "">("");
-  const [b, setB] = useState<number | "">("");
-  const compare = useCompareLibraries(Number(a), Number(b));
+// All-library comparison matrix: one column per library, rows are tracks that
+// are NOT present in every library (the diffs), with + / − per library.
+function MatrixTab() {
+  const { data, isLoading } = useLibraryMatrix();
+
+  if (isLoading) return <Spinner />;
+  if (!data || data.libraries.length === 0)
+    return <Empty>Create and scan some libraries to compare them.</Empty>;
 
   return (
     <div>
-      <div className="card mb-6 flex flex-wrap items-end gap-3">
-        <LibrarySelect label="Library A" value={a} onChange={setA} libraries={libraries.data} />
-        <LibrarySelect label="Library B" value={b} onChange={setB} libraries={libraries.data} />
-      </div>
+      <p className="mb-4 text-sm text-gray-400">
+        Comparing all {data.libraries.length} libraries. Showing{" "}
+        <strong className="text-white">{data.diff_count}</strong> track
+        {data.diff_count === 1 ? "" : "s"} that differ between libraries (of{" "}
+        {data.total_tracks} total). A <span className="text-emerald-400">+</span> means present,{" "}
+        a <span className="text-red-400">−</span> means missing.
+      </p>
 
-      {!a || !b ? (
-        <Empty>Select two libraries to compare.</Empty>
-      ) : a === b ? (
-        <Empty>Choose two different libraries.</Empty>
-      ) : compare.isLoading ? (
-        <Spinner />
-      ) : compare.data ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="card">
-            <h3 className="mb-2 font-medium text-white">
-              Only in {compare.data.library_a.name} ({compare.data.only_in_a.length})
-            </h3>
-            <TrackList tracks={compare.data.only_in_a} />
-          </div>
-          <div className="card">
-            <h3 className="mb-2 font-medium text-white">
-              Only in {compare.data.library_b.name} ({compare.data.only_in_b.length})
-            </h3>
-            <TrackList tracks={compare.data.only_in_b} />
-          </div>
-          <div className="card md:col-span-2 text-sm text-gray-400">
-            In both libraries: <strong className="text-white">{compare.data.in_both_count}</strong> tracks
-          </div>
+      {data.diff_count === 0 ? (
+        <Empty>All libraries hold the same tracks — no differences.</Empty>
+      ) : (
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead className="border-b border-edge text-left text-gray-400">
+              <tr>
+                <th className="sticky left-0 bg-panel p-3">Track</th>
+                {data.libraries.map((lib) => (
+                  <th key={lib.id} className="p-3 text-center font-medium">
+                    <Link to={`/libraries/${lib.id}`} className="hover:text-accent">
+                      {lib.name}
+                    </Link>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.map((row) => (
+                <tr key={row.track.id} className="border-b border-edge/50 hover:bg-edge/30">
+                  <td className="sticky left-0 bg-panel p-3">
+                    <Link to={`/tracks/${row.track.id}`} className="text-accent hover:underline">
+                      {row.track.title}
+                    </Link>
+                    <div className="text-xs text-gray-500">{row.track.artist}</div>
+                  </td>
+                  {data.libraries.map((lib) => {
+                    const cell = row.presence[String(lib.id)];
+                    return (
+                      <td key={lib.id} className="p-3 text-center">
+                        {cell?.present ? (
+                          <div className="flex flex-col items-center">
+                            <span className="font-semibold text-emerald-400">+</span>
+                            <span className="text-[10px] text-gray-500">{cell.format_label}</span>
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-red-400">−</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ) : null}
+      )}
     </div>
-  );
-}
-
-function TrackList({ tracks }: { tracks: { id: number; artist: string; title: string }[] }) {
-  if (tracks.length === 0) return <p className="text-sm text-gray-500">None — fully covered.</p>;
-  return (
-    <ul className="max-h-96 space-y-1 overflow-auto text-sm">
-      {tracks.map((t) => (
-        <li key={t.id}>
-          <TrackLink t={t} />
-        </li>
-      ))}
-    </ul>
   );
 }
 

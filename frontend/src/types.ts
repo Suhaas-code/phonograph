@@ -81,6 +81,26 @@ export interface TrackDetail extends Track {
   library_ids: number[];
 }
 
+export interface TrackLibraryRef {
+  id: number;
+  name: string;
+}
+
+export interface TrackCollectionRef {
+  id: number;
+  name: string;
+  type: CollectionType;
+}
+
+export interface TrackListItem {
+  id: number;
+  title: string;
+  artist: string;
+  manual: boolean;
+  libraries: TrackLibraryRef[];
+  collections: TrackCollectionRef[];
+}
+
 export interface Collection {
   id: number;
   owner_id: number;

@@ -15,6 +15,7 @@ import type {
   StreamingService,
   Track,
   TrackDetail,
+  TrackListItem,
   User,
 } from "../types";
 
@@ -123,7 +124,10 @@ export const useScanLibrary = () => {
 
 // --- Tracks ---
 export const useTracks = () =>
-  useQuery({ queryKey: ["tracks"], queryFn: () => api<Track[]>("/tracks?limit=1000") });
+  useQuery({
+    queryKey: ["tracks"],
+    queryFn: () => api<TrackListItem[]>("/tracks?limit=1000"),
+  });
 
 export const useTrack = (id: number) =>
   useQuery({
@@ -394,6 +398,23 @@ export interface CompareResult {
   only_in_b: { id: number; artist: string; title: string }[];
   in_both_count: number;
 }
+
+export interface LibraryMatrix {
+  libraries: { id: number; name: string }[];
+  rows: {
+    track: { id: number; artist: string; title: string };
+    present_count: number;
+    presence: Record<string, { present: boolean; format_label: string | null }>;
+  }[];
+  diff_count: number;
+  total_tracks: number;
+}
+
+export const useLibraryMatrix = () =>
+  useQuery({
+    queryKey: ["library-matrix"],
+    queryFn: () => api<LibraryMatrix>("/analytics/library-matrix"),
+  });
 
 export const useMissingVariants = () =>
   useQuery({

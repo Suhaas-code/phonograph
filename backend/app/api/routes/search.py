@@ -82,6 +82,14 @@ def missing_tracks(
     }
 
 
+@router.get("/analytics/library-matrix")
+def library_matrix(
+    user: User = Depends(get_approved_user), db: Session = Depends(get_db)
+) -> dict:
+    """All-library comparison matrix: diffs only, one column per library."""
+    return analytics.library_matrix(db, user.id)
+
+
 @router.get("/analytics/compare")
 def compare_libraries(
     library_a_id: int,

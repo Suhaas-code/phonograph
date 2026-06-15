@@ -1,4 +1,6 @@
 """Track routes (Phase 4 grouping + Phase 6 variant management)."""
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -6,14 +8,18 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_approved_user
 from app.api.serializers import variant_summary
 from app.database import get_db
+from app.models.collection import Collection, CollectionItem
+from app.models.library import Library
 from app.models.track import Track
 from app.models.user import User
 from app.models.variant import Variant
 from app.schemas.track import (
     MergeRequest,
     SplitRequest,
+    TrackCollectionRef,
     TrackDetail,
-    TrackOut,
+    TrackLibraryRef,
+    TrackListItem,
     TrackUpdate,
 )
 from app.schemas.variant import VariantSummary
@@ -47,22 +53,59 @@ def _to_detail(track: Track) -> TrackDetail:
     )
 
 
-@router.get("", response_model=list[TrackOut])
+@router.get("", response_model=list[TrackListItem])
 def list_tracks(
     user: User = Depends(get_approved_user),
     db: Session = Depends(get_db),
     limit: int = Query(default=200, le=1000),
     offset: int = 0,
-) -> list[Track]:
-    return list(
+) -> list[TrackListItem]:
+    """List the owner's tracks with the libraries and collections each appears in."""
+    tracks = list(
         db.scalars(
             select(Track)
             .where(Track.owner_id == user.id)
-            .order_by(Track.artist, Track.title)
+            .order_by(Track.title, Track.artist)
             .limit(limit)
             .offset(offset)
         )
     )
+    track_ids = [t.id for t in tracks]
+
+    libs_by_track: dict[int, list[TrackLibraryRef]] = defaultdict(list)
+    cols_by_track: dict[int, list[TrackCollectionRef]] = defaultdict(list)
+    if track_ids:
+        lib_rows = db.execute(
+            select(Variant.track_id, Library.id, Library.name)
+            .join(Library, Library.id == Variant.library_id)
+            .where(Variant.track_id.in_(track_ids))
+            .distinct()
+        ).all()
+        for track_id, lib_id, lib_name in lib_rows:
+            libs_by_track[track_id].append(TrackLibraryRef(id=lib_id, name=lib_name))
+
+        col_rows = db.execute(
+            select(CollectionItem.track_id, Collection.id, Collection.name, Collection.type)
+            .join(Collection, Collection.id == CollectionItem.collection_id)
+            .where(CollectionItem.track_id.in_(track_ids))
+            .order_by(Collection.type, Collection.name)
+        ).all()
+        for track_id, col_id, col_name, col_type in col_rows:
+            cols_by_track[track_id].append(
+                TrackCollectionRef(id=col_id, name=col_name, type=col_type.value)
+            )
+
+    return [
+        TrackListItem(
+            id=t.id,
+            title=t.title,
+            artist=t.artist,
+            manual=t.manual,
+            libraries=sorted(libs_by_track.get(t.id, []), key=lambda l: l.name.lower()),
+            collections=cols_by_track.get(t.id, []),
+        )
+        for t in tracks
+    ]
 
 
 @router.get("/{track_id}", response_model=TrackDetail)
