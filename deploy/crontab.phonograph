@@ -1,0 +1,8 @@
+# Hourly auto-deploy for Phonograph.
+# Install for the ubuntu user:
+#   crontab -l 2>/dev/null | cat - deploy/crontab.phonograph | crontab -
+# Or edit directly with: crontab -e
+#
+# Runs deploy.sh at the top of every hour; it pulls origin/main and restarts
+# the phonograph service only when the remote commit has changed.
+0 * * * * /home/ubuntu/projects/phonograph/deploy.sh

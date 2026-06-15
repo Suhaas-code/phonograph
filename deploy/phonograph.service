@@ -1,0 +1,29 @@
+# systemd unit for Phonograph (FastAPI serving API + built frontend).
+#
+# Install:
+#   sudo cp deploy/phonograph.service /etc/systemd/system/phonograph.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now phonograph
+#
+# ExecStart runs start.sh, which installs deps, migrates the DB, builds the
+# frontend, and execs uvicorn on $PORT. Nginx proxies the subdomain to $PORT.
+
+[Unit]
+Description=Phonograph — metadata-first music library
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/phonograph
+Environment=PORT=8090
+ExecStart=/home/ubuntu/projects/phonograph/start.sh
+Restart=on-failure
+RestartSec=5
+# The frontend build + bcrypt native build can take a little while on first run.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
