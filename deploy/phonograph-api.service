@@ -1,0 +1,27 @@
+# systemd unit for the Phonograph FastAPI backend.
+# Install to /etc/systemd/system/phonograph-api.service, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now phonograph-api
+
+[Unit]
+Description=Phonograph API (FastAPI/uvicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=phonograph
+Group=phonograph
+WorkingDirectory=/opt/phonograph/backend
+EnvironmentFile=/opt/phonograph/backend/.env
+ExecStart=/opt/phonograph/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
