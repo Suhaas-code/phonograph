@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  LibraryMatrix,
   useDuplicateVariants,
   useLibraries,
   useLibraryMatrix,
@@ -52,8 +53,82 @@ function TrackLink({ t }: { t: { id: number; artist: string; title: string } }) 
   );
 }
 
-// All-library comparison matrix: one column per library, rows are tracks that
-// are NOT present in every library (the diffs), with + / − per library.
+// All-library comparison: one column per library. Each column lists every
+// track that differs between libraries (title — artist) with its status in that
+// library (− missing / + present). Clicking a library header sorts that column
+// with missing tracks first (click again to flip to present-first).
+function MatrixColumn({
+  library,
+  rows,
+}: {
+  library: { id: number; name: string };
+  rows: LibraryMatrix["rows"];
+}) {
+  // Default: missing-first, so each column surfaces its own gaps at the top.
+  const [missingFirst, setMissingFirst] = useState(true);
+
+  const entries = useMemo(() => {
+    const list = rows.map((row) => ({
+      track: row.track,
+      ...row.presence[String(library.id)],
+    }));
+    list.sort((a, b) => {
+      if (a.present !== b.present) {
+        // missingFirst => absent (present=false) ranks before present.
+        const aKey = a.present ? 1 : 0;
+        const bKey = b.present ? 1 : 0;
+        return missingFirst ? aKey - bKey : bKey - aKey;
+      }
+      return (
+        a.track.artist.localeCompare(b.track.artist) ||
+        a.track.title.localeCompare(b.track.title)
+      );
+    });
+    return list;
+  }, [rows, library.id, missingFirst]);
+
+  const missingCount = entries.filter((e) => !e.present).length;
+
+  return (
+    <div className="card flex-1 p-0 min-w-[260px]">
+      <button
+        onClick={() => setMissingFirst((v) => !v)}
+        className="flex w-full items-center justify-between border-b border-edge px-4 py-3 text-left hover:bg-edge/40"
+        title="Sort: missing first / present first"
+      >
+        <span className="font-medium text-white">{library.name}</span>
+        <span className="text-xs text-gray-400">
+          {missingFirst ? "− first" : "+ first"} · {missingCount} missing
+        </span>
+      </button>
+      <ul className="divide-y divide-edge/50">
+        {entries.map((e) => (
+          <li key={e.track.id} className="flex items-start gap-3 px-4 py-3">
+            <span
+              className={`mt-0.5 w-3 shrink-0 text-center font-semibold ${
+                e.present ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {e.present ? "+" : "−"}
+            </span>
+            <div className="min-w-0">
+              <Link
+                to={`/tracks/${e.track.id}`}
+                className={`block truncate ${e.present ? "text-accent hover:underline" : "text-gray-300"}`}
+              >
+                {e.track.title} — {e.track.artist}
+              </Link>
+              <div className="text-xs text-gray-500">
+                {e.present ? e.format_label : "not in this library"}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function MatrixTab() {
   const { data, isLoading } = useLibraryMatrix();
 
@@ -64,58 +139,19 @@ function MatrixTab() {
   return (
     <div>
       <p className="mb-4 text-sm text-gray-400">
-        Comparing all {data.libraries.length} libraries. Showing{" "}
+        Comparing all {data.libraries.length} libraries.{" "}
         <strong className="text-white">{data.diff_count}</strong> track
-        {data.diff_count === 1 ? "" : "s"} that differ between libraries (of{" "}
-        {data.total_tracks} total). A <span className="text-emerald-400">+</span> means present,{" "}
-        a <span className="text-red-400">−</span> means missing.
+        {data.diff_count === 1 ? "" : "s"} differ (of {data.total_tracks} total). Tap a
+        library to sort — missing first, then present.
       </p>
 
       {data.diff_count === 0 ? (
         <Empty>All libraries hold the same tracks — no differences.</Empty>
       ) : (
-        <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="border-b border-edge text-left text-gray-400">
-              <tr>
-                <th className="sticky left-0 bg-panel p-3">Track</th>
-                {data.libraries.map((lib) => (
-                  <th key={lib.id} className="p-3 text-center font-medium">
-                    <Link to={`/libraries/${lib.id}`} className="hover:text-accent">
-                      {lib.name}
-                    </Link>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row) => (
-                <tr key={row.track.id} className="border-b border-edge/50 hover:bg-edge/30">
-                  <td className="sticky left-0 bg-panel p-3">
-                    <Link to={`/tracks/${row.track.id}`} className="text-accent hover:underline">
-                      {row.track.title}
-                    </Link>
-                    <div className="text-xs text-gray-500">{row.track.artist}</div>
-                  </td>
-                  {data.libraries.map((lib) => {
-                    const cell = row.presence[String(lib.id)];
-                    return (
-                      <td key={lib.id} className="p-3 text-center">
-                        {cell?.present ? (
-                          <div className="flex flex-col items-center">
-                            <span className="font-semibold text-emerald-400">+</span>
-                            <span className="text-[10px] text-gray-500">{cell.format_label}</span>
-                          </div>
-                        ) : (
-                          <span className="font-semibold text-red-400">−</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-4 md:flex-row md:flex-wrap">
+          {data.libraries.map((lib) => (
+            <MatrixColumn key={lib.id} library={lib} rows={data.rows} />
+          ))}
         </div>
       )}
     </div>
