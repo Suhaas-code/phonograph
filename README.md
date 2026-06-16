@@ -1,12 +1,7 @@
-<div align="center"><pre>
-██████╗ ██╗  ██╗ ██████╗ ███╗   ██╗ ██████╗  ██████╗ ██████╗  █████╗ ██████╗ ██╗  ██╗
-██╔══██╗██║  ██║██╔═══██╗████╗  ██║██╔═══██╗██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██║  ██║
-██████╔╝███████║██║   ██║██╔██╗ ██║██║   ██║██║  ███╗██████╔╝███████║██████╔╝███████║
-██╔═══╝ ██╔══██║██║   ██║██║╚██╗██║██║   ██║██║   ██║██╔══██╗██╔══██║██╔═══╝ ██╔══██║
-██║     ██║  ██║╚██████╔╝██║ ╚████║╚██████╔╝╚██████╔╝██║  ██║██║  ██║██║     ██║  ██║
-╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝
-                  The metadata-first manager for your music libraries
-</pre></div>
+<div align="center">
+  <img src="frontend/assets/phonograph-sd.png" alt="Phonograph" width="300">
+  <p><em>The metadata-first manager for your music libraries</em></p>
+</div>
 
 <p align="center"><strong>catalog every device · dedupe across libraries · find missing tracks &amp; quality gaps · never touches audio</strong></p>
 
