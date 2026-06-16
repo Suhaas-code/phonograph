@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="frontend/assets/phonograph-sd.png" alt="Phonograph" width="300">
+  <img src="https://raw.githubusercontent.com/Suhaas-code/phonograph/refs/heads/main/frontend/assets/phonograph-sd.png" alt="Phonograph" width="300">
 </div>
 
 # Phonograph — User Guide
