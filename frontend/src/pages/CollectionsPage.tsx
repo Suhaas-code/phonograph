@@ -33,8 +33,15 @@ export default function CollectionsPage() {
       .forEach((c) => {
         (result[c.type] ||= []).push(c);
       });
+    // Within each group, most-songs first (then name as a tiebreak).
+    Object.values(result).forEach((list) =>
+      list.sort(
+        (a, b) => (b.item_count ?? 0) - (a.item_count ?? 0) || a.name.localeCompare(b.name)
+      )
+    );
     return result;
   }, [collections, search]);
+  // User-made collections first, then auto-generated albums and tags.
   const order: CollectionType[] = ["user", "album", "tag"];
   const hasResults = order.some((t) => grouped[t]?.length);
 
