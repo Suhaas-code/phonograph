@@ -7,9 +7,13 @@ import type {
   Collection,
   CollectionDetail,
   CollectionType,
+  Extension,
+  ExtensionDetail,
   Library,
   LibraryStats,
+  ManifestPreview,
   PublicConfig,
+  RefreshSummary,
   ScannedFile,
   Share,
   SharedCollectionView,
@@ -512,6 +516,106 @@ export const useSetBugStatus = () => {
       qc.invalidateQueries({ queryKey: ["bug-report", v.id] });
       qc.invalidateQueries({ queryKey: ["bug-reports"] });
     },
+  });
+};
+
+// --- Extensions ---
+export const useExtensions = () =>
+  useQuery({ queryKey: ["extensions"], queryFn: () => api<Extension[]>("/extensions") });
+
+export const useExtension = (id: number) =>
+  useQuery({
+    queryKey: ["extension", id],
+    queryFn: () => api<ExtensionDetail>(`/extensions/${id}`),
+    enabled: !!id,
+  });
+
+export const usePreviewManifest = () =>
+  useMutation({
+    mutationFn: (manifest_url: string) =>
+      api<ManifestPreview>("/extensions/preview", {
+        method: "POST",
+        body: { manifest_url },
+      }),
+  });
+
+export const useInstallExtension = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { manifest_url: string; approved_permissions: string[] }) =>
+      api<ExtensionDetail>("/extensions", { method: "POST", body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["extensions"] }),
+  });
+};
+
+export const useSetExtensionEnabled = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+      api<Extension>(`/extensions/${id}/${enabled ? "enable" : "disable"}`, {
+        method: "POST",
+      }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["extensions"] });
+      qc.invalidateQueries({ queryKey: ["extension", v.id] });
+    },
+  });
+};
+
+export const useRefreshExtension = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<RefreshSummary>(`/extensions/${id}/refresh`, { method: "POST" }),
+    // Refresh writes into Tracks/StreamingLinks and updates the extension's own
+    // status — refetch both whether it succeeds or errors.
+    onSettled: (_d, _e, id) => {
+      qc.invalidateQueries({ queryKey: ["extensions"] });
+      qc.invalidateQueries({ queryKey: ["extension", id] });
+      qc.invalidateQueries({ queryKey: ["tracks"] });
+    },
+  });
+};
+
+export const useUpdateExtension = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<ExtensionDetail>(`/extensions/${id}/update`, { method: "POST" }),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["extensions"] });
+      qc.invalidateQueries({ queryKey: ["extension", id] });
+    },
+  });
+};
+
+export const useReapproveExtension = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      id: number;
+      manifest_url: string;
+      approved_permissions: string[];
+    }) =>
+      api<ExtensionDetail>(`/extensions/${body.id}/reapprove`, {
+        method: "POST",
+        body: {
+          manifest_url: body.manifest_url,
+          approved_permissions: body.approved_permissions,
+        },
+      }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["extensions"] });
+      qc.invalidateQueries({ queryKey: ["extension", v.id] });
+    },
+  });
+};
+
+export const useRemoveExtension = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api<void>(`/extensions/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["extensions"] }),
   });
 };
 

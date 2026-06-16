@@ -192,6 +192,61 @@ export interface PublicConfig {
   streaming_services: StreamingService[];
 }
 
+// --- Extensions ---
+export type ExtensionStatus = "enabled" | "disabled" | "error";
+
+export interface ManifestPreview {
+  name: string;
+  version: string;
+  author: string;
+  api_version: string;
+  endpoint_url: string;
+  capabilities: string[];
+  required_permissions: string[];
+  permission_descriptions: Record<string, string>;
+}
+
+export interface ExtensionEvent {
+  id: number;
+  kind: string;
+  detail: string | null;
+  created_at: string;
+}
+
+export interface Extension {
+  id: number;
+  owner_id: number;
+  name: string;
+  version: string;
+  author: string;
+  api_version: string;
+  manifest_url: string;
+  endpoint_url: string;
+  capabilities: string[];
+  requested_permissions: string[];
+  granted_permissions: string[];
+  status: ExtensionStatus;
+  needs_reapproval: boolean;
+  last_error: string | null;
+  last_refresh_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExtensionDetail extends Extension {
+  events: ExtensionEvent[];
+}
+
+export interface RefreshSummary {
+  extension_id: number;
+  status: ExtensionStatus;
+  tracks_sent: number;
+  links_written: number;
+  tracks_metadata_updated: number;
+  message: string;
+  last_refresh_at: string | null;
+}
+
 // Scanner output uploaded to the backend (metadata only).
 export interface ScannedFile {
   title: string;

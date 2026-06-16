@@ -12,6 +12,7 @@ from app.api.routes import (
     auth,
     bugs,
     collections,
+    extensions,
     libraries,
     search,
     sharing,
@@ -48,6 +49,7 @@ api.include_router(sharing.router)
 api.include_router(streaming_links.router)
 api.include_router(search.router)
 api.include_router(bugs.router)
+api.include_router(extensions.router)
 
 
 @api.get("/health", tags=["meta"])

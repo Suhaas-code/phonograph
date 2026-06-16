@@ -77,6 +77,29 @@ add or remove songs — just open that library and scan it again.
   each, where you have duplicates, and which copies you could upgrade.
 - **Sharing** — share a collection with another approved member via a link, then
   find collections shared with you here.
+- **Settings → Extensions** — connect outside services that fill in extra song
+  details for you (see below).
+
+## Extensions
+
+Extensions are optional helpers that can enrich your songs — for example, adding
+streaming links or filling in a missing genre or year. They're run by other
+people as separate online services; Phonograph just talks to them. As always,
+your music files are never involved — only song details are shared, and only what
+you approve.
+
+To add one:
+
+1. Go to **Settings → Extensions** and click **Install extension**.
+2. Paste the extension's **manifest URL** (the extension's author gives you this).
+3. Phonograph shows you the extension's name, version, author, what it can do, and
+   exactly **what information it's asking to read or change**.
+4. If you're happy, click **Approve & install**. It's ready right away.
+
+Each extension shows whether it's **Enabled**, **Disabled**, or in **Error**. Use
+**Refresh metadata** to let it update your songs, **Disable** to pause it,
+**Update** to pull the latest version, or **Remove** to delete it. Anything an
+extension already added to your songs stays even after you remove it.
 
 ## Tips
 

@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:5173/oauth/callback"
 
+    # Extension framework: external services registered per-user via a manifest
+    # URL. Phonograph is only an HTTP client of these services (never runs their
+    # code, never sends/receives audio). See EXTENSIONS.md.
+    extensions_enabled: bool = True
+    extension_allow_http: bool = False  # allow http:// endpoints (local dev only)
+    extension_http_timeout: float = 10.0  # seconds per outbound call
+    extension_max_response_bytes: int = 1024 * 1024  # cap on manifest/refresh bodies
+    extension_refresh_batch_size: int = 200  # tracks sent per refresh request
+    extension_refresh_cooldown_seconds: int = 30  # min gap between refreshes
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
