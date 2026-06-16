@@ -1,12 +1,34 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useTracks } from "../api/hooks";
+import { useCollections, useLibraries, useTracks } from "../api/hooks";
+import AlphabetRail from "../components/AlphabetRail";
 import { PageHeader, Spinner, Empty } from "../components/ui";
+import { useAlphabetScroll } from "../lib/useAlphabetScroll";
 import type { TrackListItem } from "../types";
 
+type SortField = "title" | "artist" | "library" | "collection";
+
+const SORTS: { value: SortField; label: string }[] = [
+  { value: "title", label: "Title" },
+  { value: "artist", label: "Artist" },
+  { value: "library", label: "Library" },
+  { value: "collection", label: "Collection" },
+];
+
+function sortKey(t: TrackListItem, field: SortField): string {
+  if (field === "artist") return t.artist || "";
+  if (field === "library") return t.libraries[0]?.name || "";
+  if (field === "collection") return t.collections[0]?.name || "";
+  return t.title || "";
+}
+
+function letterOf(value: string): string {
+  const c = (value || "").trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(c) ? c : "#";
+}
+
 function LibraryBadges({ track }: { track: TrackListItem }) {
-  if (track.libraries.length === 0)
-    return <span className="text-xs text-gray-600">—</span>;
+  if (track.libraries.length === 0) return <span className="text-xs text-gray-600">—</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {track.libraries.map((l) => (
@@ -19,17 +41,14 @@ function LibraryBadges({ track }: { track: TrackListItem }) {
 }
 
 function CollectionBadges({ track }: { track: TrackListItem }) {
-  if (track.collections.length === 0)
-    return <span className="text-xs text-gray-600">—</span>;
+  if (track.collections.length === 0) return <span className="text-xs text-gray-600">—</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {track.collections.map((c) => (
         <Link
           key={c.id}
           to={`/collections/${c.id}`}
-          className={`badge hover:border-accent ${
-            c.type === "user" ? "border-accent/60 text-accent" : ""
-          }`}
+          className={`badge hover:border-accent ${c.type === "user" ? "border-accent/60 text-accent" : ""}`}
         >
           {c.name}
         </Link>
@@ -40,91 +59,161 @@ function CollectionBadges({ track }: { track: TrackListItem }) {
 
 export default function TracksPage() {
   const { data: tracks, isLoading } = useTracks();
-  const [filter, setFilter] = useState("");
+  const libraries = useLibraries();
+  const collections = useCollections();
 
-  const filtered = useMemo(() => {
-    if (!tracks) return [];
-    const f = filter.toLowerCase().trim();
-    if (!f) return tracks;
-    return tracks.filter(
-      (t) => t.artist.toLowerCase().includes(f) || t.title.toLowerCase().includes(f)
+  const [search, setSearch] = useState("");
+  const [libraryId, setLibraryId] = useState<number | "">("");
+  const [artist, setArtist] = useState("");
+  const [collectionId, setCollectionId] = useState<number | "">("");
+  const [sort, setSort] = useState<SortField>("title");
+
+  const artists = useMemo(() => {
+    const set = new Set((tracks ?? []).map((t) => t.artist).filter(Boolean));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tracks]);
+
+  const groups = useMemo(() => {
+    const term = search.toLowerCase().trim();
+    const filtered = (tracks ?? []).filter((t) => {
+      if (term && !`${t.title} ${t.artist}`.toLowerCase().includes(term)) return false;
+      if (libraryId && !t.libraries.some((l) => l.id === libraryId)) return false;
+      if (artist && t.artist !== artist) return false;
+      if (collectionId && !t.collections.some((c) => c.id === collectionId)) return false;
+      return true;
+    });
+    filtered.sort(
+      (a, b) =>
+        sortKey(a, sort).localeCompare(sortKey(b, sort), undefined, { sensitivity: "base" }) ||
+        a.title.localeCompare(b.title)
     );
-  }, [tracks, filter]);
+    const out: { letter: string; items: TrackListItem[] }[] = [];
+    let cur: { letter: string; items: TrackListItem[] } | null = null;
+    for (const t of filtered) {
+      const L = letterOf(sortKey(t, sort));
+      if (!cur || cur.letter !== L) {
+        cur = { letter: L, items: [] };
+        out.push(cur);
+      }
+      cur.items.push(t);
+    }
+    return out;
+  }, [tracks, search, libraryId, artist, collectionId, sort]);
+
+  const letters = useMemo(() => groups.map((g) => g.letter), [groups]);
+  const total = useMemo(() => groups.reduce((n, g) => n + g.items.length, 0), [groups]);
+  const { containerRef, setHeaderRef, active, onScroll, jump } = useAlphabetScroll(letters);
 
   return (
     <div>
-      <PageHeader
-        title="Tracks"
-        subtitle="Logical songs, deduplicated across your libraries."
-      />
-      <input
-        className="input mb-4"
-        placeholder="Filter by title or artist"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <PageHeader title="Tracks" subtitle="Logical songs, deduplicated across your libraries." />
+
+      {/* Search + filters */}
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <input
+          className="input lg:col-span-2"
+          placeholder="Search title or artist"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="input"
+          value={libraryId}
+          onChange={(e) => setLibraryId(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">All libraries</option>
+          {(libraries.data ?? []).map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        <select className="input" value={artist} onChange={(e) => setArtist(e.target.value)}>
+          <option value="">All artists</option>
+          {artists.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
+        <select
+          className="input"
+          value={collectionId}
+          onChange={(e) => setCollectionId(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">All collections</option>
+          {(collections.data ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3 flex items-center justify-between text-sm text-gray-400">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">Sort by</span>
+          {SORTS.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setSort(s.value)}
+              className={`rounded px-2 py-1 text-xs ${
+                sort === s.value ? "bg-accent text-ink" : "border border-edge hover:bg-edge"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <span>{total} tracks</span>
+      </div>
 
       {isLoading ? (
         <Spinner />
-      ) : filtered.length === 0 ? (
-        <Empty>No tracks. Scan a library to populate your catalog.</Empty>
+      ) : total === 0 ? (
+        <Empty>No tracks match. Adjust filters or scan a library.</Empty>
       ) : (
-        <>
-          {/* Desktop / tablet: table */}
-          <div className="card hidden overflow-x-auto p-0 md:block">
-            <table className="w-full text-sm">
-              <thead className="border-b border-edge text-left text-gray-400">
-                <tr>
-                  <th className="p-3">Title</th>
-                  <th className="p-3">Artist</th>
-                  <th className="p-3">Libraries</th>
-                  <th className="p-3">Collections</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((t) => (
-                  <tr key={t.id} className="border-b border-edge/50 align-top hover:bg-edge/30">
-                    <td className="p-3">
-                      <Link to={`/tracks/${t.id}`} className="text-accent hover:underline">
+        <div className="relative">
+          <div
+            ref={containerRef}
+            onScroll={onScroll}
+            className="relative h-[calc(100dvh-17rem)] overflow-y-auto rounded-lg border border-edge bg-panel pr-8"
+          >
+            {groups.map((g) => (
+              <div key={g.letter} ref={setHeaderRef(g.letter)}>
+                <div className="sticky top-0 z-[1] bg-edge/80 px-4 py-1 text-xs font-bold uppercase tracking-wide text-gray-300 backdrop-blur">
+                  {g.letter}
+                </div>
+                {g.items.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex flex-col gap-2 border-b border-edge/40 px-4 py-3 sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 sm:w-1/3">
+                      <Link to={`/tracks/${t.id}`} className="block truncate text-accent hover:underline">
                         {t.title}
                       </Link>
-                      {t.manual && <span className="badge ml-2">manual</span>}
-                    </td>
-                    <td className="p-3 text-gray-300">{t.artist}</td>
-                    <td className="p-3">
+                      <div className="truncate text-xs text-gray-400">{t.artist}</div>
+                    </div>
+                    <div className="min-w-0 sm:w-1/3">
+                      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-gray-600 sm:hidden">
+                        Libraries
+                      </div>
                       <LibraryBadges track={t} />
-                    </td>
-                    <td className="p-3">
+                    </div>
+                    <div className="min-w-0 sm:w-1/3">
+                      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-gray-600 sm:hidden">
+                        Collections
+                      </div>
                       <CollectionBadges track={t} />
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile: cards */}
-          <div className="space-y-3 md:hidden">
-            {filtered.map((t) => (
-              <div key={t.id} className="card">
-                <Link to={`/tracks/${t.id}`} className="text-base font-medium text-accent">
-                  {t.title}
-                </Link>
-                <div className="text-sm text-gray-300">{t.artist}</div>
-                <div className="mt-3 space-y-2">
-                  <div>
-                    <div className="label mb-1">Libraries</div>
-                    <LibraryBadges track={t} />
-                  </div>
-                  <div>
-                    <div className="label mb-1">Collections</div>
-                    <CollectionBadges track={t} />
-                  </div>
-                </div>
               </div>
             ))}
           </div>
-        </>
+          <AlphabetRail letters={letters} active={active} onSelect={jump} />
+        </div>
       )}
     </div>
   );

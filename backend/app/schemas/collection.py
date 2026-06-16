@@ -25,6 +25,10 @@ class CollectionOut(BaseModel):
     created_at: datetime
 
 
+class CollectionSummary(CollectionOut):
+    item_count: int = 0
+
+
 class CollectionDetail(CollectionOut):
     item_count: int = 0
     tracks: list[TrackOut] = []

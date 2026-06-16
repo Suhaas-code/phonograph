@@ -8,7 +8,6 @@ const NAV = [
   { to: "/tracks", label: "Tracks" },
   { to: "/collections", label: "Collections" },
   { to: "/sharing", label: "Sharing" },
-  { to: "/search", label: "Search" },
   { to: "/analytics", label: "Analytics" },
 ];
 

@@ -107,6 +107,7 @@ export interface Collection {
   name: string;
   type: CollectionType;
   created_at: string;
+  item_count?: number;
 }
 
 export interface CollectionDetail extends Collection {

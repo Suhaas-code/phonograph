@@ -14,7 +14,6 @@ import CollectionsPage from "./pages/CollectionsPage";
 import CollectionDetailPage from "./pages/CollectionDetailPage";
 import SharingPage from "./pages/SharingPage";
 import SharedViewPage from "./pages/SharedViewPage";
-import SearchPage from "./pages/SearchPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import AdminPage from "./pages/AdminPage";
 
@@ -61,7 +60,6 @@ export default function App() {
         <Route path="/collections/:id" element={<CollectionDetailPage />} />
         <Route path="/sharing" element={<SharingPage />} />
         <Route path="/shared/:token" element={<SharedViewPage />} />
-        <Route path="/search" element={<SearchPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         {user.role === "admin" && <Route path="/admin" element={<AdminPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />

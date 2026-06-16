@@ -2,21 +2,20 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   LibraryMatrix,
+  useCollections,
   useDuplicateVariants,
-  useLibraries,
   useLibraryMatrix,
   useMissingVariants,
-  useQualityDistribution,
+  useTracks,
 } from "../api/hooks";
-import { PageHeader, Spinner, Empty, QualityBadge } from "../components/ui";
+import { PageHeader, Spinner, Empty } from "../components/ui";
 
-type Tab = "compare" | "missing-variants" | "duplicates" | "quality";
+type Tab = "compare" | "missing-variants" | "duplicates";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "compare", label: "Library comparison" },
   { id: "missing-variants", label: "Upgrade gaps" },
   { id: "duplicates", label: "Duplicate variants" },
-  { id: "quality", label: "Quality distribution" },
 ];
 
 export default function AnalyticsPage() {
@@ -40,7 +39,6 @@ export default function AnalyticsPage() {
       {tab === "compare" && <MatrixTab />}
       {tab === "missing-variants" && <MissingVariantsTab />}
       {tab === "duplicates" && <DuplicatesTab />}
-      {tab === "quality" && <QualityTab />}
     </div>
   );
 }
@@ -53,44 +51,43 @@ function TrackLink({ t }: { t: { id: number; artist: string; title: string } }) 
   );
 }
 
-// All-library comparison: one column per library. Each column lists every
-// track that differs between libraries (title — artist) with its status in that
-// library (− missing / + present). Clicking a library header sorts that column
-// with missing tracks first (click again to flip to present-first).
+type CompareSort = "artist" | "title";
+
+// One column per library. Each column lists every differing track (title —
+// artist) with its status in that library. Header click sorts missing-first /
+// present-first; the global sort sets the alphabetical secondary order.
 function MatrixColumn({
   library,
   rows,
+  sortField,
 }: {
   library: { id: number; name: string };
   rows: LibraryMatrix["rows"];
+  sortField: CompareSort;
 }) {
-  // Default: missing-first, so each column surfaces its own gaps at the top.
   const [missingFirst, setMissingFirst] = useState(true);
 
   const entries = useMemo(() => {
-    const list = rows.map((row) => ({
-      track: row.track,
-      ...row.presence[String(library.id)],
-    }));
+    const list = rows.map((row) => ({ track: row.track, ...row.presence[String(library.id)] }));
     list.sort((a, b) => {
       if (a.present !== b.present) {
-        // missingFirst => absent (present=false) ranks before present.
         const aKey = a.present ? 1 : 0;
         const bKey = b.present ? 1 : 0;
         return missingFirst ? aKey - bKey : bKey - aKey;
       }
-      return (
-        a.track.artist.localeCompare(b.track.artist) ||
-        a.track.title.localeCompare(b.track.title)
-      );
+      const primary =
+        sortField === "title"
+          ? a.track.title.localeCompare(b.track.title)
+          : a.track.artist.localeCompare(b.track.artist);
+      return primary || a.track.title.localeCompare(b.track.title);
     });
     return list;
-  }, [rows, library.id, missingFirst]);
+  }, [rows, library.id, missingFirst, sortField]);
 
   const missingCount = entries.filter((e) => !e.present).length;
 
   return (
-    <div className="card flex-1 p-0 min-w-[260px]">
+    <div className="card min-w-[260px] flex-1 p-0">
       <button
         onClick={() => setMissingFirst((v) => !v)}
         className="flex w-full items-center justify-between border-b border-edge px-4 py-3 text-left hover:bg-edge/40"
@@ -101,7 +98,7 @@ function MatrixColumn({
           {missingFirst ? "− first" : "+ first"} · {missingCount} missing
         </span>
       </button>
-      <ul className="divide-y divide-edge/50">
+      <ul className="max-h-[60vh] divide-y divide-edge/50 overflow-y-auto">
         {entries.map((e) => (
           <li key={e.track.id} className="flex items-start gap-3 px-4 py-3">
             <span
@@ -131,59 +128,117 @@ function MatrixColumn({
 
 function MatrixTab() {
   const { data, isLoading } = useLibraryMatrix();
+  const tracks = useTracks();
+  const collections = useCollections();
+
+  const [artist, setArtist] = useState("");
+  const [collectionId, setCollectionId] = useState<number | "">("");
+  const [hiddenLibs, setHiddenLibs] = useState<Set<number>>(new Set());
+  const [sortField, setSortField] = useState<CompareSort>("artist");
+
+  // Map track -> collection ids, so the collection filter can apply here too.
+  const trackCollections = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    for (const t of tracks.data ?? []) {
+      map.set(t.id, new Set(t.collections.map((c) => c.id)));
+    }
+    return map;
+  }, [tracks.data]);
+
+  const filteredRows = useMemo(() => {
+    if (!data) return [];
+    const term = artist.toLowerCase().trim();
+    return data.rows.filter((row) => {
+      if (term && !row.track.artist.toLowerCase().includes(term)) return false;
+      if (collectionId) {
+        const set = trackCollections.get(row.track.id);
+        if (!set || !set.has(collectionId)) return false;
+      }
+      return true;
+    });
+  }, [data, artist, collectionId, trackCollections]);
 
   if (isLoading) return <Spinner />;
   if (!data || data.libraries.length === 0)
     return <Empty>Create and scan some libraries to compare them.</Empty>;
 
+  const visibleLibs = data.libraries.filter((l) => !hiddenLibs.has(l.id));
+
+  const toggleLib = (id: number) =>
+    setHiddenLibs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <div>
+      {/* Filters */}
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <input
+          className="input"
+          placeholder="Filter by artist"
+          value={artist}
+          onChange={(e) => setArtist(e.target.value)}
+        />
+        <select
+          className="input"
+          value={collectionId}
+          onChange={(e) => setCollectionId(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">All collections</option>
+          {(collections.data ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <span className="text-gray-500">Sort</span>
+          {(["artist", "title"] as CompareSort[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSortField(s)}
+              className={`rounded px-2 py-1 text-xs capitalize ${
+                sortField === s ? "bg-accent text-ink" : "border border-edge hover:bg-edge"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          {data.libraries.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => toggleLib(l.id)}
+              className={`badge ${hiddenLibs.has(l.id) ? "opacity-40" : "border-accent text-accent"}`}
+              title="Show/hide this library column"
+            >
+              {l.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <p className="mb-4 text-sm text-gray-400">
-        Comparing all {data.libraries.length} libraries.{" "}
-        <strong className="text-white">{data.diff_count}</strong> track
-        {data.diff_count === 1 ? "" : "s"} differ (of {data.total_tracks} total). Tap a
-        library to sort — missing first, then present.
+        Comparing {visibleLibs.length} of {data.libraries.length} libraries.{" "}
+        <strong className="text-white">{filteredRows.length}</strong> differing track
+        {filteredRows.length === 1 ? "" : "s"} shown. Tap a library header to sort missing-first.
       </p>
 
-      {data.diff_count === 0 ? (
-        <Empty>All libraries hold the same tracks — no differences.</Empty>
+      {visibleLibs.length === 0 ? (
+        <Empty>All library columns are hidden — re-enable one above.</Empty>
+      ) : filteredRows.length === 0 ? (
+        <Empty>No differing tracks match the current filters.</Empty>
       ) : (
         <div className="flex flex-col gap-4 md:flex-row md:flex-wrap">
-          {data.libraries.map((lib) => (
-            <MatrixColumn key={lib.id} library={lib} rows={data.rows} />
+          {visibleLibs.map((lib) => (
+            <MatrixColumn key={lib.id} library={lib} rows={filteredRows} sortField={sortField} />
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function LibrarySelect({
-  label,
-  value,
-  onChange,
-  libraries,
-}: {
-  label: string;
-  value: number | "";
-  onChange: (v: number | "") => void;
-  libraries?: { id: number; name: string }[];
-}) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-      <select
-        className="input w-56"
-        value={value}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
-      >
-        <option value="">Select…</option>
-        {(libraries ?? []).map((l) => (
-          <option key={l.id} value={l.id}>
-            {l.name}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }
@@ -200,7 +255,7 @@ function MissingVariantsTab() {
       </p>
       {data.items.map((item) => (
         <div key={item.track.id} className="card">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <TrackLink t={item.track} />
             <span className="badge border-accent text-accent">best: {item.best_format}</span>
           </div>
@@ -230,7 +285,7 @@ function DuplicatesTab() {
       </p>
       {data.items.map((item, i) => (
         <div key={i} className="card">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <TrackLink t={item.track} />
             <span className="badge">
               {item.library_name ?? `#${item.library_id}`} · {item.count} files
@@ -243,75 +298,6 @@ function DuplicatesTab() {
               </li>
             ))}
           </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function QualityTab() {
-  const libraries = useLibraries();
-  const [libraryId, setLibraryId] = useState<number | "">("");
-  const { data, isLoading } = useQualityDistribution(libraryId ? Number(libraryId) : undefined);
-
-  return (
-    <div>
-      <div className="card mb-6">
-        <LibrarySelect
-          label="Scope"
-          value={libraryId}
-          onChange={setLibraryId}
-          libraries={[{ id: 0, name: "All libraries" }, ...(libraries.data ?? [])].filter(
-            (l) => l.id !== 0 || true
-          )}
-        />
-        <p className="mt-1 text-xs text-gray-500">Leave unselected for all libraries.</p>
-      </div>
-      {isLoading ? (
-        <Spinner />
-      ) : !data || data.total_variants === 0 ? (
-        <Empty>No variants to analyze.</Empty>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="card">
-            <h3 className="mb-3 font-medium text-white">By quality tier</h3>
-            <Bars data={data.by_tier} total={data.total_variants} tiered />
-          </div>
-          <div className="card">
-            <h3 className="mb-3 font-medium text-white">By codec</h3>
-            <Bars data={data.by_codec} total={data.total_variants} />
-          </div>
-          <div className="card md:col-span-2 text-sm text-gray-400">
-            Total variants: <strong className="text-white">{data.total_variants}</strong>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Bars({
-  data,
-  total,
-  tiered,
-}: {
-  data: Record<string, number>;
-  total: number;
-  tiered?: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      {Object.entries(data).map(([key, count]) => (
-        <div key={key}>
-          <div className="mb-1 flex justify-between text-xs">
-            <span className="flex items-center gap-2">
-              {tiered ? <QualityBadge tier={key} /> : <span className="text-gray-300">{key}</span>}
-            </span>
-            <span className="text-gray-500">{count}</span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded bg-edge">
-            <div className="h-full bg-accent" style={{ width: `${(count / total) * 100}%` }} />
-          </div>
         </div>
       ))}
     </div>

@@ -1,8 +1,8 @@
 """Collection routes (Phase 7). User collections are editable; album/tag
 collections are system-generated and read-only."""
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_approved_user
 from app.database import get_db
@@ -14,6 +14,7 @@ from app.schemas.collection import (
     CollectionDetail,
     CollectionItemRequest,
     CollectionOut,
+    CollectionSummary,
     CollectionUpdate,
 )
 
@@ -55,16 +56,36 @@ def _to_detail(db: Session, collection: Collection) -> CollectionDetail:
     )
 
 
-@router.get("", response_model=list[CollectionOut])
+@router.get("", response_model=list[CollectionSummary])
 def list_collections(
     type: CollectionType | None = Query(default=None),
     user: User = Depends(get_approved_user),
     db: Session = Depends(get_db),
-) -> list[Collection]:
+) -> list[CollectionSummary]:
     stmt = select(Collection).where(Collection.owner_id == user.id)
     if type is not None:
         stmt = stmt.where(Collection.type == type)
-    return list(db.scalars(stmt.order_by(Collection.type, Collection.name)))
+    collections = list(db.scalars(stmt.order_by(Collection.type, Collection.name)))
+
+    counts = dict(
+        db.execute(
+            select(CollectionItem.collection_id, func.count())
+            .where(CollectionItem.collection_id.in_([c.id for c in collections]))
+            .group_by(CollectionItem.collection_id)
+        ).all()
+    ) if collections else {}
+
+    return [
+        CollectionSummary(
+            id=c.id,
+            owner_id=c.owner_id,
+            name=c.name,
+            type=c.type,
+            created_at=c.created_at,
+            item_count=counts.get(c.id, 0),
+        )
+        for c in collections
+    ]
 
 
 @router.post("", response_model=CollectionOut, status_code=status.HTTP_201_CREATED)
