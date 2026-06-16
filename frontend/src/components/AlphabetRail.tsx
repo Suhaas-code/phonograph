@@ -26,9 +26,10 @@ export default function AlphabetRail({
   if (letters.length === 0) return null;
 
   return (
+    // Sits just left of the (thin, themed) scrollbar so the two never overlap.
     <div
       ref={ref}
-      className="absolute bottom-0 right-0 top-0 z-10 flex touch-none select-none flex-col items-center justify-center gap-px py-2"
+      className="absolute bottom-0 right-2.5 top-0 z-10 flex touch-none select-none flex-col items-center justify-center gap-px rounded-full bg-edge/30 px-0.5 py-2"
       onTouchStart={(e) => pick(e.touches[0].clientY, false)}
       onTouchMove={(e) => {
         e.preventDefault();
@@ -40,10 +41,10 @@ export default function AlphabetRail({
           key={l}
           type="button"
           onClick={() => onSelect(l, true)}
-          className={`flex h-5 w-6 items-center justify-center rounded text-[11px] font-medium leading-none transition-colors md:h-4 ${
+          className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-[11px] font-medium leading-none transition-colors md:h-[18px] md:w-5 ${
             active === l
               ? "bg-accent font-bold text-ink"
-              : "text-gray-500 hover:text-white"
+              : "text-gray-400 hover:bg-edge hover:text-white"
           }`}
         >
           {l}

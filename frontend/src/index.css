@@ -11,6 +11,26 @@
   body {
     @apply bg-ink text-gray-200 antialiased;
   }
+
+  /* Dark, theme-consistent scrollbars everywhere (replaces the white default). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #313a47 transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #313a47;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #46515f;
+  }
 }
 
 @layer components {

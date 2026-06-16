@@ -177,7 +177,7 @@ export default function TracksPage() {
           <div
             ref={containerRef}
             onScroll={onScroll}
-            className="relative h-[calc(100dvh-17rem)] overflow-y-auto rounded-lg border border-edge bg-panel pr-8"
+            className="relative h-[calc(100dvh-17rem)] overflow-y-auto rounded-lg border border-edge bg-panel pr-11"
           >
             {groups.map((g) => (
               <div key={g.letter} ref={setHeaderRef(g.letter)}>
