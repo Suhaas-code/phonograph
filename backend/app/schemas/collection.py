@@ -4,7 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.collection import CollectionType
-from app.schemas.track import TrackOut
+from app.schemas.track import TrackListItem
 
 
 class CollectionCreate(BaseModel):
@@ -31,7 +31,7 @@ class CollectionSummary(CollectionOut):
 
 class CollectionDetail(CollectionOut):
     item_count: int = 0
-    tracks: list[TrackOut] = []
+    tracks: list[TrackListItem] = []
 
 
 class CollectionItemRequest(BaseModel):

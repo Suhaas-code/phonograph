@@ -7,6 +7,7 @@ import {
   useShareCollection,
   useUpdateCollection,
 } from "../api/hooks";
+import { TrackColumnsHeader, TrackRow } from "../components/track";
 import { PageHeader, Spinner, Empty, ErrorText } from "../components/ui";
 
 export default function CollectionDetailPage() {
@@ -122,40 +123,24 @@ export default function CollectionDetailPage() {
       {c.tracks.length === 0 ? (
         <Empty>No tracks in this collection.</Empty>
       ) : (
-        <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="border-b border-edge text-left text-gray-400">
-              <tr>
-                <th className="p-3">Artist</th>
-                <th className="p-3">Title</th>
-                {editable && <th className="p-3"></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {c.tracks.map((t) => (
-                <tr key={t.id} className="border-b border-edge/50 hover:bg-edge/30">
-                  <td className="p-3 text-gray-300">{t.artist}</td>
-                  <td className="p-3">
-                    <Link to={`/tracks/${t.id}`} className="text-accent hover:underline">
-                      {t.title}
-                    </Link>
-                  </td>
-                  {editable && (
-                    <td className="p-3 text-right">
-                      <button
-                        className="text-xs text-red-400 hover:underline"
-                        onClick={() =>
-                          removeTrack.mutate({ collectionId, trackId: t.id })
-                        }
-                      >
-                        remove
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-lg border border-edge bg-panel">
+          <TrackColumnsHeader />
+          {c.tracks.map((t) => (
+            <TrackRow
+              key={t.id}
+              track={t}
+              action={
+                editable ? (
+                  <button
+                    className="text-xs text-red-400 hover:underline"
+                    onClick={() => removeTrack.mutate({ collectionId, trackId: t.id })}
+                  >
+                    remove
+                  </button>
+                ) : undefined
+              }
+            />
+          ))}
         </div>
       )}
     </div>

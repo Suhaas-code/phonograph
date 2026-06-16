@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useCollections, useLibraries, useTracks } from "../api/hooks";
 import AlphabetRail from "../components/AlphabetRail";
+import { TrackColumnsHeader, TrackRow } from "../components/track";
 import { PageHeader, Spinner, Empty } from "../components/ui";
 import { useAlphabetScroll } from "../lib/useAlphabetScroll";
 import type { TrackListItem } from "../types";
@@ -25,36 +25,6 @@ function sortKey(t: TrackListItem, field: SortField): string {
 function letterOf(value: string): string {
   const c = (value || "").trim().charAt(0).toUpperCase();
   return /[A-Z]/.test(c) ? c : "#";
-}
-
-function LibraryBadges({ track }: { track: TrackListItem }) {
-  if (track.libraries.length === 0) return <span className="text-xs text-gray-600">—</span>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {track.libraries.map((l) => (
-        <Link key={l.id} to={`/libraries/${l.id}`} className="badge hover:border-accent">
-          {l.name}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function CollectionBadges({ track }: { track: TrackListItem }) {
-  if (track.collections.length === 0) return <span className="text-xs text-gray-600">—</span>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {track.collections.map((c) => (
-        <Link
-          key={c.id}
-          to={`/collections/${c.id}`}
-          className={`badge hover:border-accent ${c.type === "user" ? "border-accent/60 text-accent" : ""}`}
-        >
-          {c.name}
-        </Link>
-      ))}
-    </div>
-  );
 }
 
 export default function TracksPage() {
@@ -173,46 +143,27 @@ export default function TracksPage() {
       ) : total === 0 ? (
         <Empty>No tracks match. Adjust filters or scan a library.</Empty>
       ) : (
-        <div className="relative">
-          <div
-            ref={containerRef}
-            onScroll={onScroll}
-            className="relative h-[calc(100dvh-17rem)] overflow-y-auto rounded-lg border border-edge bg-panel pr-11"
-          >
-            {groups.map((g) => (
-              <div key={g.letter} ref={setHeaderRef(g.letter)}>
-                <div className="sticky top-0 z-[1] bg-edge/80 px-4 py-1 text-xs font-bold uppercase tracking-wide text-gray-300 backdrop-blur">
-                  {g.letter}
-                </div>
-                {g.items.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex flex-col gap-2 border-b border-edge/40 px-4 py-3 sm:flex-row sm:items-center"
-                  >
-                    <div className="min-w-0 sm:w-1/3">
-                      <Link to={`/tracks/${t.id}`} className="block truncate text-accent hover:underline">
-                        {t.title}
-                      </Link>
-                      <div className="truncate text-xs text-gray-400">{t.artist}</div>
-                    </div>
-                    <div className="min-w-0 sm:w-1/3">
-                      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-gray-600 sm:hidden">
-                        Libraries
-                      </div>
-                      <LibraryBadges track={t} />
-                    </div>
-                    <div className="min-w-0 sm:w-1/3">
-                      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-gray-600 sm:hidden">
-                        Collections
-                      </div>
-                      <CollectionBadges track={t} />
-                    </div>
+        <div className="overflow-hidden rounded-lg border border-edge bg-panel">
+          <TrackColumnsHeader />
+          <div className="relative">
+            <div
+              ref={containerRef}
+              onScroll={onScroll}
+              className="relative h-[calc(100dvh-19rem)] overflow-y-auto pr-11"
+            >
+              {groups.map((g) => (
+                <div key={g.letter} ref={setHeaderRef(g.letter)}>
+                  <div className="sticky top-0 z-[1] bg-edge/80 px-4 py-1 text-xs font-bold uppercase tracking-wide text-gray-300 backdrop-blur">
+                    {g.letter}
                   </div>
-                ))}
-              </div>
-            ))}
+                  {g.items.map((t) => (
+                    <TrackRow key={t.id} track={t} />
+                  ))}
+                </div>
+              ))}
+            </div>
+            <AlphabetRail letters={letters} active={active} onSelect={jump} />
           </div>
-          <AlphabetRail letters={letters} active={active} onSelect={jump} />
         </div>
       )}
     </div>

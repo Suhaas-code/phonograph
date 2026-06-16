@@ -49,6 +49,7 @@ class VariantSummary(BaseModel):
     channels: int | None
     duration: float | None
     file_size: int | None
+    year: int | None = None
     format_label: str
     quality_tier: str
     lossless: bool

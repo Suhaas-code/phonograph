@@ -53,6 +53,7 @@ export interface VariantSummary {
   channels: number | null;
   duration: number | null;
   file_size: number | null;
+  year: number | null;
   format_label: string;
   quality_tier: string;
   lossless: boolean;
@@ -79,6 +80,8 @@ export interface TrackDetail extends Track {
   variants: VariantSummary[];
   streaming_links: StreamingLink[];
   library_ids: number[];
+  collections: TrackCollectionRef[];
+  liked: boolean;
 }
 
 export interface TrackLibraryRef {
@@ -97,8 +100,19 @@ export interface TrackListItem {
   title: string;
   artist: string;
   manual: boolean;
+  liked: boolean;
   libraries: TrackLibraryRef[];
   collections: TrackCollectionRef[];
+  duration: number | null;
+  codec: string | null;
+  container: string | null;
+  bit_depth: number | null;
+  sample_rate: number | null;
+  bitrate: number | null;
+  file_size: number | null;
+  year: number | null;
+  format_label: string | null;
+  quality_tier: string | null;
 }
 
 export interface Collection {
@@ -112,7 +126,7 @@ export interface Collection {
 
 export interface CollectionDetail extends Collection {
   item_count: number;
-  tracks: Track[];
+  tracks: TrackListItem[];
 }
 
 export interface Share {

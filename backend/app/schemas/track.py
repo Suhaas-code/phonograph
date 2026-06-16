@@ -30,14 +30,26 @@ class TrackLibraryRef(BaseModel):
 
 
 class TrackListItem(BaseModel):
-    """Track plus the libraries and collections it appears in (list view)."""
+    """Track plus its libraries/collections and best-variant audio fields."""
 
     id: int
     title: str
     artist: str
     manual: bool
+    liked: bool = False
     libraries: list[TrackLibraryRef] = []
     collections: list[TrackCollectionRef] = []
+    # Audio fields from the highest-quality variant (None if unknown).
+    duration: float | None = None
+    codec: str | None = None
+    container: str | None = None
+    bit_depth: int | None = None
+    sample_rate: int | None = None
+    bitrate: int | None = None
+    file_size: int | None = None
+    year: int | None = None
+    format_label: str | None = None
+    quality_tier: str | None = None
 
 
 class StreamingLinkOut(BaseModel):
@@ -53,6 +65,8 @@ class TrackDetail(TrackOut):
     variants: list[VariantSummary] = []
     streaming_links: list[StreamingLinkOut] = []
     library_ids: list[int] = []
+    collections: list[TrackCollectionRef] = []
+    liked: bool = False
 
 
 class TrackUpdate(BaseModel):

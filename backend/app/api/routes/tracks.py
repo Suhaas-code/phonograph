@@ -1,15 +1,12 @@
 """Track routes (Phase 4 grouping + Phase 6 variant management)."""
-from collections import defaultdict
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_approved_user
-from app.api.serializers import variant_summary
+from app.api.serializers import build_track_list_items, variant_summary
 from app.database import get_db
-from app.models.collection import Collection, CollectionItem
-from app.models.library import Library
+from app.models.collection import Collection, CollectionItem, CollectionType
 from app.models.track import Track
 from app.models.user import User
 from app.models.variant import Variant
@@ -18,12 +15,12 @@ from app.schemas.track import (
     SplitRequest,
     TrackCollectionRef,
     TrackDetail,
-    TrackLibraryRef,
     TrackListItem,
     TrackUpdate,
 )
 from app.schemas.variant import VariantSummary
 from app.services import variant_quality
+from app.services.liked import LIKED_NAME, get_or_create_liked
 from app.services.normalization import normalize_artist, normalize_title
 from app.services.track_grouping import merge_tracks, split_variants
 
@@ -37,8 +34,21 @@ def _get_owned_track(db: Session, user: User, track_id: int) -> Track:
     return track
 
 
-def _to_detail(track: Track) -> TrackDetail:
+def _to_detail(db: Session, track: Track) -> TrackDetail:
     ordered = variant_quality.sort_variants(list(track.variants))
+    collections: list[TrackCollectionRef] = []
+    liked = False
+    for cid, cname, ctype in db.execute(
+        select(Collection.id, Collection.name, Collection.type)
+        .join(CollectionItem, CollectionItem.collection_id == Collection.id)
+        .where(CollectionItem.track_id == track.id)
+        .order_by(Collection.type, Collection.name)
+    ).all():
+        if ctype == CollectionType.user and cname == LIKED_NAME:
+            liked = True
+            continue
+        collections.append(TrackCollectionRef(id=cid, name=cname, type=ctype.value))
+
     return TrackDetail(
         id=track.id,
         artist=track.artist,
@@ -50,6 +60,8 @@ def _to_detail(track: Track) -> TrackDetail:
         variants=[variant_summary(v) for v in ordered],
         streaming_links=track.streaming_links,
         library_ids=sorted({v.library_id for v in track.variants}),
+        collections=collections,
+        liked=liked,
     )
 
 
@@ -60,7 +72,7 @@ def list_tracks(
     limit: int = Query(default=200, le=1000),
     offset: int = 0,
 ) -> list[TrackListItem]:
-    """List the owner's tracks with the libraries and collections each appears in."""
+    """List the owner's tracks with libraries, collections, and best-variant info."""
     tracks = list(
         db.scalars(
             select(Track)
@@ -70,42 +82,7 @@ def list_tracks(
             .offset(offset)
         )
     )
-    track_ids = [t.id for t in tracks]
-
-    libs_by_track: dict[int, list[TrackLibraryRef]] = defaultdict(list)
-    cols_by_track: dict[int, list[TrackCollectionRef]] = defaultdict(list)
-    if track_ids:
-        lib_rows = db.execute(
-            select(Variant.track_id, Library.id, Library.name)
-            .join(Library, Library.id == Variant.library_id)
-            .where(Variant.track_id.in_(track_ids))
-            .distinct()
-        ).all()
-        for track_id, lib_id, lib_name in lib_rows:
-            libs_by_track[track_id].append(TrackLibraryRef(id=lib_id, name=lib_name))
-
-        col_rows = db.execute(
-            select(CollectionItem.track_id, Collection.id, Collection.name, Collection.type)
-            .join(Collection, Collection.id == CollectionItem.collection_id)
-            .where(CollectionItem.track_id.in_(track_ids))
-            .order_by(Collection.type, Collection.name)
-        ).all()
-        for track_id, col_id, col_name, col_type in col_rows:
-            cols_by_track[track_id].append(
-                TrackCollectionRef(id=col_id, name=col_name, type=col_type.value)
-            )
-
-    return [
-        TrackListItem(
-            id=t.id,
-            title=t.title,
-            artist=t.artist,
-            manual=t.manual,
-            libraries=sorted(libs_by_track.get(t.id, []), key=lambda l: l.name.lower()),
-            collections=cols_by_track.get(t.id, []),
-        )
-        for t in tracks
-    ]
+    return build_track_list_items(db, tracks)
 
 
 @router.get("/{track_id}", response_model=TrackDetail)
@@ -124,7 +101,7 @@ def get_track(
     )
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
-    return _to_detail(track)
+    return _to_detail(db, track)
 
 
 @router.patch("/{track_id}", response_model=TrackDetail)
@@ -144,7 +121,7 @@ def update_track(
     track.manual = True
     db.commit()
     db.refresh(track)
-    return _to_detail(track)
+    return _to_detail(db, track)
 
 
 @router.post("/{track_id}/merge", response_model=TrackDetail)
@@ -164,7 +141,7 @@ def merge(
     merge_tracks(db, target, source)
     db.commit()
     db.refresh(target)
-    return _to_detail(target)
+    return _to_detail(db, target)
 
 
 @router.post("/{track_id}/split", response_model=TrackDetail)
@@ -190,7 +167,7 @@ def split(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     db.commit()
     db.refresh(new_track)
-    return _to_detail(new_track)
+    return _to_detail(db, new_track)
 
 
 @router.get("/{track_id}/variants", response_model=list[VariantSummary])
@@ -238,3 +215,42 @@ def variant_comparison(
             for lib_id, v in per_library.items()
         ],
     }
+
+
+@router.post("/{track_id}/like")
+def like_track(
+    track_id: int,
+    user: User = Depends(get_approved_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Add the track to the user's (auto-created) Liked Songs collection."""
+    track = _get_owned_track(db, user, track_id)
+    liked = get_or_create_liked(db, user.id)
+    exists = db.scalar(
+        select(CollectionItem).where(
+            CollectionItem.collection_id == liked.id, CollectionItem.track_id == track.id
+        )
+    )
+    if not exists:
+        db.add(CollectionItem(collection_id=liked.id, track_id=track.id))
+        db.commit()
+    return {"liked": True}
+
+
+@router.delete("/{track_id}/like")
+def unlike_track(
+    track_id: int,
+    user: User = Depends(get_approved_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    track = _get_owned_track(db, user, track_id)
+    liked = get_or_create_liked(db, user.id)
+    item = db.scalar(
+        select(CollectionItem).where(
+            CollectionItem.collection_id == liked.id, CollectionItem.track_id == track.id
+        )
+    )
+    if item:
+        db.delete(item)
+        db.commit()
+    return {"liked": False}

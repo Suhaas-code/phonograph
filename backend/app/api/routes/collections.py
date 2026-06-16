@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_approved_user
+from app.api.serializers import build_track_list_items
 from app.database import get_db
 from app.models.collection import Collection, CollectionItem, CollectionType
 from app.models.track import Track
@@ -17,6 +18,7 @@ from app.schemas.collection import (
     CollectionSummary,
     CollectionUpdate,
 )
+from app.services.liked import LIKED_NAME, get_or_create_liked, is_liked_collection
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -39,20 +41,23 @@ def _ensure_editable(collection: Collection) -> None:
 
 
 def _to_detail(db: Session, collection: Collection) -> CollectionDetail:
-    tracks = db.scalars(
-        select(Track)
-        .join(CollectionItem, CollectionItem.track_id == Track.id)
-        .where(CollectionItem.collection_id == collection.id)
-        .order_by(Track.artist, Track.title)
-    ).all()
+    tracks = list(
+        db.scalars(
+            select(Track)
+            .join(CollectionItem, CollectionItem.track_id == Track.id)
+            .where(CollectionItem.collection_id == collection.id)
+            .order_by(Track.title, Track.artist)
+        )
+    )
+    items = build_track_list_items(db, tracks)
     return CollectionDetail(
         id=collection.id,
         owner_id=collection.owner_id,
         name=collection.name,
         type=collection.type,
         created_at=collection.created_at,
-        item_count=len(tracks),
-        tracks=list(tracks),
+        item_count=len(items),
+        tracks=items,
     )
 
 
@@ -62,6 +67,7 @@ def list_collections(
     user: User = Depends(get_approved_user),
     db: Session = Depends(get_db),
 ) -> list[CollectionSummary]:
+    get_or_create_liked(db, user.id)  # ensure the Liked Songs collection exists
     stmt = select(Collection).where(Collection.owner_id == user.id)
     if type is not None:
         stmt = stmt.where(Collection.type == type)
@@ -94,6 +100,11 @@ def create_collection(
     user: User = Depends(get_approved_user),
     db: Session = Depends(get_db),
 ) -> Collection:
+    if payload.name.strip() == LIKED_NAME:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'"{LIKED_NAME}" is a reserved collection name',
+        )
     collection = Collection(
         owner_id=user.id, name=payload.name, type=CollectionType.user
     )
@@ -122,6 +133,11 @@ def update_collection(
 ) -> Collection:
     collection = _get_owned_collection(db, user, collection_id)
     _ensure_editable(collection)
+    if is_liked_collection(collection) or payload.name.strip() == LIKED_NAME:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The Liked Songs collection cannot be renamed",
+        )
     collection.name = payload.name
     db.commit()
     db.refresh(collection)
@@ -136,6 +152,11 @@ def delete_collection(
 ) -> None:
     collection = _get_owned_collection(db, user, collection_id)
     _ensure_editable(collection)
+    if is_liked_collection(collection):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The Liked Songs collection cannot be deleted",
+        )
     db.delete(collection)
     db.commit()
 

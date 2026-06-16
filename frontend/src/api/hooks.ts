@@ -514,3 +514,17 @@ export const useSetBugStatus = () => {
     },
   });
 };
+
+export const useLikeTrack = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, liked }: { id: number; liked: boolean }) =>
+      api(`/tracks/${id}/like`, { method: liked ? "DELETE" : "POST" }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["tracks"] });
+      qc.invalidateQueries({ queryKey: ["track", v.id] });
+      qc.invalidateQueries({ queryKey: ["collection"] });
+      qc.invalidateQueries({ queryKey: ["collections"] });
+    },
+  });
+};

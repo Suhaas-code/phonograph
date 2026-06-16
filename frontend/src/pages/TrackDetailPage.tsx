@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   useAddStreamingLink,
   useAddTrackToCollection,
@@ -14,9 +14,17 @@ import {
   useTracks,
   useUpdateTrack,
 } from "../api/hooks";
+import { LikeButton } from "../components/track";
 import { PageHeader, Spinner, Empty, ErrorText, QualityBadge } from "../components/ui";
-import { formatBytes, formatDuration, SERVICE_LABELS } from "../lib/format";
-import type { StreamingService } from "../types";
+import {
+  formatBitSample,
+  formatBitrate,
+  formatBytes,
+  formatCodec,
+  formatDuration,
+  SERVICE_LABELS,
+} from "../lib/format";
+import type { StreamingService, TrackDetail } from "../types";
 
 const SERVICES: StreamingService[] = [
   "spotify",
@@ -40,9 +48,14 @@ export default function TrackDetailPage() {
 
   return (
     <div>
-      <PageHeader title={t.title} subtitle={t.artist} />
+      <PageHeader
+        title={t.title}
+        subtitle={t.artist}
+        actions={<LikeButton trackId={trackId} liked={t.liked} size="md" />}
+      />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          <DetailsCard t={t} />
           <VariantsCard trackId={trackId} />
           <ComparisonCard data={comparison.data} />
         </div>
@@ -51,6 +64,66 @@ export default function TrackDetailPage() {
           <StreamingLinksCard trackId={trackId} />
           <AddToCollectionCard trackId={trackId} />
           <MergeCard trackId={trackId} onMerged={() => navigate(`/tracks/${trackId}`)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Uniform metadata summary for the best-quality copy, blank where unknown.
+function DetailsCard({ t }: { t: TrackDetail }) {
+  const best = t.variants[0];
+  const libs = Array.from(
+    new Map(t.variants.map((v) => [v.library_id, v.library_name ?? `#${v.library_id}`])).values()
+  );
+  const cells: [string, string][] = [
+    ["Year", best?.year ? String(best.year) : ""],
+    ["Length", best?.duration ? formatDuration(best.duration) : ""],
+    ["Format", formatCodec(best?.codec)],
+    ["Bit / Rate", best ? formatBitSample(best.bit_depth, best.sample_rate) : ""],
+    ["Bitrate", best ? formatBitrate(best.bitrate) : ""],
+    ["File size", best?.file_size ? formatBytes(best.file_size) : ""],
+  ];
+
+  return (
+    <div className="card">
+      <h2 className="mb-3 font-medium text-white">Details</h2>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+        {cells.map(([label, value]) => (
+          <div key={label}>
+            <div className="label">{label}</div>
+            <div className="text-sm text-gray-200">{value || " "}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <div className="label">Libraries</div>
+          <div className="flex flex-wrap gap-1">
+            {libs.length ? (
+              libs.map((n, i) => (
+                <span key={i} className="badge">
+                  {n}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-gray-500">&nbsp;</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="label">Collections</div>
+          <div className="flex flex-wrap gap-1">
+            {t.collections.length ? (
+              t.collections.map((c) => (
+                <Link key={c.id} to={`/collections/${c.id}`} className="badge hover:border-accent">
+                  {c.name}
+                </Link>
+              ))
+            ) : (
+              <span className="text-sm text-gray-500">&nbsp;</span>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -104,6 +177,7 @@ function VariantsCard({ trackId }: { trackId: number }) {
               <th className="p-2">Format</th>
               <th className="p-2">Library</th>
               <th className="p-2">Quality</th>
+              <th className="p-2">Year</th>
               <th className="p-2">Duration</th>
               <th className="p-2">Size</th>
             </tr>
@@ -128,8 +202,9 @@ function VariantsCard({ trackId }: { trackId: number }) {
                 <td className="p-2">
                   <QualityBadge tier={v.quality_tier} />
                 </td>
-                <td className="p-2 text-gray-500">{formatDuration(v.duration)}</td>
-                <td className="p-2 text-gray-500">{formatBytes(v.file_size)}</td>
+                <td className="p-2 text-gray-500">{v.year ?? ""}</td>
+                <td className="p-2 text-gray-500">{v.duration ? formatDuration(v.duration) : ""}</td>
+                <td className="p-2 text-gray-500">{v.file_size ? formatBytes(v.file_size) : ""}</td>
               </tr>
             ))}
           </tbody>

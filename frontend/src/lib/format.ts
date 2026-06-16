@@ -25,6 +25,26 @@ export function formatDate(iso: string | null | undefined): string {
   return new Date(iso).toLocaleString();
 }
 
+// File format (codec) for display, e.g. "FLAC", "MP3". Blank if unknown.
+export function formatCodec(codec: string | null | undefined): string {
+  return codec ? codec.toUpperCase() : "";
+}
+
+// "24-bit · 96 kHz", or just one part, or blank if both unknown.
+export function formatBitSample(
+  bitDepth: number | null | undefined,
+  sampleRate: number | null | undefined
+): string {
+  const parts: string[] = [];
+  if (bitDepth) parts.push(`${bitDepth}-bit`);
+  if (sampleRate) parts.push(`${(sampleRate / 1000).toString().replace(/\.0$/, "")} kHz`);
+  return parts.join(" · ");
+}
+
+export function formatBitrate(bitrate: number | null | undefined): string {
+  return bitrate ? `${bitrate} kbps` : "";
+}
+
 export const SERVICE_LABELS: Record<string, string> = {
   spotify: "Spotify",
   tidal: "Tidal",
