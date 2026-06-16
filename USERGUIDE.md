@@ -33,10 +33,15 @@ details (title, artist, album, quality, and so on).
 
 ## Devices you can use
 
-- **To add music (scanning):** a computer (Windows, Mac, or Linux) using
-  **Chrome, Edge, or Firefox**. You'll pick a music folder to scan.
-- **To browse and manage:** any device — phone, tablet, or computer. The site is
-  built to work well on a phone too.
+- **To add and update music (scanning & syncing):** computers (Windows, Mac, or
+  Linux) **and Android phones and tablets**, using a web browser (**Chrome**
+  works best). You'll pick a music folder to scan, and you can re-scan anytime to
+  sync changes.
+- **To browse and manage:** any device with a web browser. The site is built to
+  work well on a phone too.
+
+> Apple devices (iPhone and iPad) aren't supported for scanning. You can still
+> sign in on them to browse and manage your library.
 
 ## Getting started
 
@@ -45,17 +50,20 @@ details (title, artist, album, quality, and so on).
 3. **Wait for approval.** New accounts need an admin to approve them. Once
    approved, sign in and you're in.
 
-## Adding your music (on a computer)
+## Adding your music
+
+You can do this on a computer or an Android device — the steps are the same.
 
 1. Go to **Libraries** and click **New library**. Give it a name for that device
-   (for example, *Laptop FLACs*).
+   (for example, *Laptop FLACs* or *Android Music*).
 2. Open the library and click **Select folder**, then choose your music folder.
 3. Phonograph reads the song details from your files (this can take a moment for
    large folders) and shows you a preview.
 4. Click **Upload** to save them. Your songs now appear under **Tracks**.
 
-To add music from another device, sign in on that device (or note it down),
-create a **new library** for it, and scan its folder the same way.
+To add music from another device, sign in on that device, create a **new
+library** for it, and scan its folder the same way. To **sync** later — after you
+add or remove songs — just open that library and scan it again.
 
 ## Finding your way around
 

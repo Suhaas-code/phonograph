@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
+  BugReport,
+  BugReportDetail,
+  BugStatus,
   Collection,
   CollectionDetail,
   CollectionType,
@@ -459,3 +462,55 @@ export const useQualityDistribution = (libraryId?: number) =>
         `/analytics/quality-distribution${libraryId ? `?library_id=${libraryId}` : ""}`
       ),
   });
+
+// --- Bug reports ---
+export const useBugReports = (statusFilter?: BugStatus) =>
+  useQuery({
+    queryKey: ["bug-reports", statusFilter ?? "all"],
+    queryFn: () =>
+      api<BugReport[]>(`/bugs${statusFilter ? `?status=${statusFilter}` : ""}`),
+  });
+
+export const useBugReport = (id: number) =>
+  useQuery({
+    queryKey: ["bug-report", id],
+    queryFn: () => api<BugReportDetail>(`/bugs/${id}`),
+    enabled: !!id,
+  });
+
+export const useCreateBugReport = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { title: string; body: string }) =>
+      api<BugReportDetail>("/bugs", { method: "POST", body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bug-reports"] }),
+  });
+};
+
+export const useAddBugMessage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body, images }: { id: number; body: string; images: File[] }) => {
+      const fd = new FormData();
+      fd.append("body", body);
+      images.forEach((f) => fd.append("images", f));
+      return api<BugReportDetail>(`/bugs/${id}/messages`, { method: "POST", formData: fd });
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["bug-report", v.id] });
+      qc.invalidateQueries({ queryKey: ["bug-reports"] });
+    },
+  });
+};
+
+export const useSetBugStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: BugStatus }) =>
+      api<BugReport>(`/bugs/${id}/status`, { method: "POST", body: { status } }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["bug-report", v.id] });
+      qc.invalidateQueries({ queryKey: ["bug-reports"] });
+    },
+  });
+};

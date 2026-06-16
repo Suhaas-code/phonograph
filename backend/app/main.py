@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import (
     admin,
     auth,
+    bugs,
     collections,
     libraries,
     search,
@@ -46,6 +47,7 @@ api.include_router(collections.router)
 api.include_router(sharing.router)
 api.include_router(streaming_links.router)
 api.include_router(search.router)
+api.include_router(bugs.router)
 
 
 @api.get("/health", tags=["meta"])

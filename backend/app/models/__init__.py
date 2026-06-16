@@ -1,4 +1,5 @@
 """SQLAlchemy ORM models."""
+from app.models.bug_report import BugAttachment, BugMessage, BugReport, BugStatus
 from app.models.collection import Collection, CollectionItem, CollectionType
 from app.models.library import Library
 from app.models.share import Share, SharePermission
@@ -21,4 +22,8 @@ __all__ = [
     "StreamingService",
     "Share",
     "SharePermission",
+    "BugReport",
+    "BugMessage",
+    "BugAttachment",
+    "BugStatus",
 ]

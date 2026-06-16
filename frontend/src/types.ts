@@ -139,6 +139,39 @@ export interface StreamingLinkSuggestion {
   source_title: string;
 }
 
+export type BugStatus = "open" | "closed";
+
+export interface BugAttachment {
+  id: number;
+  filename: string;
+  content_type: string;
+  size: number;
+}
+
+export interface BugMessage {
+  id: number;
+  author_id: number;
+  author_username: string;
+  body: string;
+  created_at: string;
+  attachments: BugAttachment[];
+}
+
+export interface BugReport {
+  id: number;
+  owner_id: number;
+  owner_username: string;
+  title: string;
+  status: BugStatus;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BugReportDetail extends BugReport {
+  messages: BugMessage[];
+}
+
 export interface PublicConfig {
   google_oauth_enabled: boolean;
   supported_formats: string[];

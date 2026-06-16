@@ -15,6 +15,8 @@ import CollectionDetailPage from "./pages/CollectionDetailPage";
 import SharingPage from "./pages/SharingPage";
 import SharedViewPage from "./pages/SharedViewPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import BugReportsPage from "./pages/BugReportsPage";
+import BugReportDetailPage from "./pages/BugReportDetailPage";
 import AdminPage from "./pages/AdminPage";
 
 function Loading() {
@@ -61,6 +63,8 @@ export default function App() {
         <Route path="/sharing" element={<SharingPage />} />
         <Route path="/shared/:token" element={<SharedViewPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/bugs" element={<BugReportsPage />} />
+        <Route path="/bugs/:id" element={<BugReportDetailPage />} />
         {user.role === "admin" && <Route path="/admin" element={<AdminPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

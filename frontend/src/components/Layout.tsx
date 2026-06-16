@@ -9,6 +9,7 @@ const NAV = [
   { to: "/collections", label: "Collections" },
   { to: "/sharing", label: "Sharing" },
   { to: "/analytics", label: "Analytics" },
+  { to: "/bugs", label: "Report Bug" },
 ];
 
 function NavLinks({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?: boolean }) {
