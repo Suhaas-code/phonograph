@@ -15,6 +15,7 @@ import type {
   PublicConfig,
   RefreshSummary,
   ScannedFile,
+  SearchAugmentSummary,
   Share,
   SharedCollectionView,
   StreamingLink,
@@ -565,17 +566,26 @@ export const useSetExtensionEnabled = () => {
 export const useRefreshExtension = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) =>
-      api<RefreshSummary>(`/extensions/${id}/refresh`, { method: "POST" }),
+    mutationFn: ({ id, trackId }: { id: number; trackId: number }) =>
+      api<RefreshSummary>(`/extensions/${id}/refresh?track_id=${trackId}`, { method: "POST" }),
     // Refresh writes into Tracks/StreamingLinks and updates the extension's own
     // status — refetch both whether it succeeds or errors.
-    onSettled: (_d, _e, id) => {
+    onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: ["extensions"] });
-      qc.invalidateQueries({ queryKey: ["extension", id] });
+      qc.invalidateQueries({ queryKey: ["extension", vars.id] });
       qc.invalidateQueries({ queryKey: ["tracks"] });
+      qc.invalidateQueries({ queryKey: ["track", vars.trackId] });
     },
   });
 };
+
+export const useExtensionSearch = (extId: number, q: string) =>
+  useQuery({
+    queryKey: ["extension-search", extId, q],
+    queryFn: () =>
+      api<SearchAugmentSummary>(`/extensions/${extId}/search?q=${encodeURIComponent(q)}`),
+    enabled: q.trim().length > 1,
+  });
 
 export const useUpdateExtension = () => {
   const qc = useQueryClient();

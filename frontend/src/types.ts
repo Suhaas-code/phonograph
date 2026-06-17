@@ -247,6 +247,17 @@ export interface RefreshSummary {
   last_refresh_at: string | null;
 }
 
+export interface SearchAugmentResult {
+  label: string;
+  sublabel: string | null;
+  url: string | null;
+}
+
+export interface SearchAugmentSummary {
+  extension_id: number;
+  results: SearchAugmentResult[];
+}
+
 // Scanner output uploaded to the backend (metadata only).
 export interface ScannedFile {
   title: string;

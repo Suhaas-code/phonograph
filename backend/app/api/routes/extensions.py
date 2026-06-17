@@ -22,6 +22,7 @@ from app.schemas.extension import (
     ManifestPreview,
     ManifestPreviewRequest,
     RefreshSummary,
+    SearchSummary,
 )
 from app.services import extensions as svc
 from app.services.url_guard import ExtensionHTTPError
@@ -144,12 +145,27 @@ def disable_extension(
 @router.post("/{ext_id}/refresh", response_model=RefreshSummary)
 def refresh_extension(
     ext_id: int,
+    track_id: int,
     user: User = Depends(get_approved_user),
     db: Session = Depends(get_db),
 ) -> RefreshSummary:
     ext = _get_owned_extension(db, user, ext_id)
     try:
-        return svc.refresh(db, ext)
+        return svc.refresh(db, ext, track_id)
+    except (svc.ExtensionStateError, ExtensionHTTPError) as exc:
+        raise _map_service_errors(exc)
+
+
+@router.get("/{ext_id}/search", response_model=SearchSummary)
+def search_extension(
+    ext_id: int,
+    q: str,
+    user: User = Depends(get_approved_user),
+    db: Session = Depends(get_db),
+) -> SearchSummary:
+    ext = _get_owned_extension(db, user, ext_id)
+    try:
+        return svc.search(db, ext, q)
     except (svc.ExtensionStateError, ExtensionHTTPError) as exc:
         raise _map_service_errors(exc)
 

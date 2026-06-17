@@ -5,8 +5,10 @@ import {
   useAddTrackToCollection,
   useCollections,
   useDeleteStreamingLink,
+  useExtensions,
   useLinkSuggestions,
   useMergeTrack,
+  useRefreshExtension,
   useSplitTrack,
   useStreamingLinks,
   useTrack,
@@ -62,6 +64,7 @@ export default function TrackDetailPage() {
         <div className="space-y-6">
           <EditCard trackId={trackId} artist={t.artist} title={t.title} />
           <StreamingLinksCard trackId={trackId} />
+          <ExtensionRefreshCard trackId={trackId} />
           <AddToCollectionCard trackId={trackId} />
           <MergeCard trackId={trackId} onMerged={() => navigate(`/tracks/${trackId}`)} />
         </div>
@@ -441,6 +444,41 @@ function AddToCollectionCard({ trackId }: { trackId: number }) {
       ) : (
         <p className="text-sm text-gray-500">Create a collection first.</p>
       )}
+    </div>
+  );
+}
+
+function ExtensionRefreshCard({ trackId }: { trackId: number }) {
+  const { data: extensions } = useExtensions();
+  const refresh = useRefreshExtension();
+
+  const applicable = (extensions ?? []).filter(
+    (e) => e.capabilities.includes("metadata.refresh") && e.status === "enabled"
+  );
+
+  if (applicable.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 className="mb-3 font-medium text-white">Metadata Refresh</h2>
+      <div className="space-y-2">
+        {applicable.map((ext) => (
+          <button
+            key={ext.id}
+            className="btn-primary w-full"
+            disabled={refresh.isPending}
+            onClick={() => refresh.mutate({ id: ext.id, trackId })}
+          >
+            {refresh.isPending && refresh.variables?.id === ext.id
+              ? "Refreshing…"
+              : ext.name}
+          </button>
+        ))}
+      </div>
+      {refresh.isSuccess && (
+        <p className="mt-2 text-xs text-emerald-400">{refresh.data?.message}</p>
+      )}
+      <ErrorText error={refresh.error} />
     </div>
   );
 }

@@ -23,6 +23,7 @@ SUPPORTED_API_VERSIONS = {"1.0"}
 # Capabilities an extension may advertise (what it can do).
 CAPABILITIES = {
     "metadata.refresh",
+    "search.augment",
     "streaming_links.resolve",
     "enrichment.tags",
 }
@@ -32,6 +33,7 @@ CAPABILITIES = {
 PERMISSIONS = {
     "read:tracks",
     "read:libraries",
+    "read:query",
     "write:streaming_links",
     "write:track_metadata",
 }

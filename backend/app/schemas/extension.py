@@ -20,6 +20,7 @@ from app.models.extension import (
 PERMISSION_DESCRIPTIONS: dict[str, str] = {
     "read:tracks": "Send your track metadata (artist, title, album, year) to the extension.",
     "read:libraries": "Send your library names and structure to the extension.",
+    "read:query": "Send your search query text to the extension.",
     "write:streaming_links": "Add or update streaming-service links on your tracks.",
     "write:track_metadata": "Fill in missing genre and year on your tracks.",
 }
@@ -164,3 +165,25 @@ class RefreshResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     results: list[RefreshResultItem] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------- #
+# The extension's /search response (parsed strictly)
+# --------------------------------------------------------------------------- #
+class SearchResultItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=300)
+    sublabel: str | None = Field(default=None, max_length=300)
+    url: str | None = Field(default=None, max_length=2000)
+
+
+class SearchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    results: list[SearchResultItem] = Field(default_factory=list)
+
+
+class SearchSummary(BaseModel):
+    extension_id: int
+    results: list[SearchResultItem]

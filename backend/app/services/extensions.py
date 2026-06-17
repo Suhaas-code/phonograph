@@ -31,6 +31,8 @@ from app.schemas.extension import (
     ManifestPreview,
     RefreshResultItem,
     RefreshSummary,
+    SearchResultItem,
+    SearchSummary,
 )
 from app.services.url_guard import (
     ExtensionHTTPError,
@@ -311,7 +313,7 @@ def _apply_track_metadata(track: Track, item: RefreshResultItem) -> bool:
     return touched
 
 
-def refresh(db: Session, ext: Extension) -> RefreshSummary:
+def refresh(db: Session, ext: Extension, track_id: int) -> RefreshSummary:
     if ext.status != ExtensionStatus.enabled:
         raise ExtensionStateError("Enable the extension before refreshing")
     if ext.needs_reapproval:
@@ -324,16 +326,15 @@ def refresh(db: Session, ext: Extension) -> RefreshSummary:
         if elapsed < settings.extension_refresh_cooldown_seconds:
             raise ExtensionStateError("Refreshed too recently; try again shortly")
 
-    tracks = list(
-        db.scalars(
-            select(Track)
-            .where(Track.owner_id == ext.owner_id)
-            .options(selectinload(Track.variants), selectinload(Track.streaming_links))
-            .order_by(Track.id)
-            .limit(settings.extension_refresh_batch_size)
-        )
+    track = db.scalar(
+        select(Track)
+        .where(Track.id == track_id, Track.owner_id == ext.owner_id)
+        .options(selectinload(Track.variants), selectinload(Track.streaming_links))
     )
-    tracks_by_id = {t.id: t for t in tracks}
+    if track is None:
+        raise ExtensionStateError("Track not found")
+    tracks = [track]
+    tracks_by_id = {track.id: track}
 
     body = json.dumps(
         {
@@ -398,3 +399,45 @@ def refresh(db: Session, ext: Extension) -> RefreshSummary:
         message=message,
         last_refresh_at=ext.last_refresh_at,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Search Augmentation
+# --------------------------------------------------------------------------- #
+def search(db: Session, ext: Extension, query: str) -> SearchSummary:
+    if ext.status != ExtensionStatus.enabled:
+        raise ExtensionStateError("Enable the extension before searching")
+    if ext.needs_reapproval:
+        raise ExtensionStateError("Re-approve the extension's permissions before searching")
+    if "search.augment" not in ext.capabilities:
+        raise ExtensionStateError("This extension does not support search augmentation")
+
+    body_data: dict = {
+        "api_version": ext.api_version,
+        "extension_id": ext.id,
+        "granted_permissions": ext.granted_permissions,
+    }
+    if "read:query" in ext.granted_permissions:
+        body_data["query"] = query
+
+    body = json.dumps(body_data, separators=(",", ":"), sort_keys=True)
+
+    try:
+        raw = safe_post_json(
+            _endpoint(ext, "/search"), body=body, headers=_signed_headers(ext, body)
+        )
+    except (ExtensionHTTPError, OutboundURLError) as exc:
+        ext.status = ExtensionStatus.error
+        ext.last_error = str(exc)
+        _event(db, ext, "error", str(exc))
+        db.commit()
+        raise
+
+    results: list[SearchResultItem] = []
+    for entry in raw.get("results", []) or []:
+        try:
+            results.append(SearchResultItem.model_validate(entry))
+        except ValidationError:
+            continue
+
+    return SearchSummary(extension_id=ext.id, results=results)

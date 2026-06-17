@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { useCollections, useLibraries, useTracks } from "../api/hooks";
+import { useCollections, useExtensionSearch, useExtensions, useLibraries, useTracks } from "../api/hooks";
 import AlphabetRail from "../components/AlphabetRail";
 import { TrackColumnsHeader, TrackRow } from "../components/track";
-import { PageHeader, Spinner, Empty } from "../components/ui";
+import { ErrorText, Spinner, Empty, PageHeader } from "../components/ui";
 import { useAlphabetScroll } from "../lib/useAlphabetScroll";
 import type { TrackListItem } from "../types";
 
@@ -120,6 +120,8 @@ export default function TracksPage() {
         </select>
       </div>
 
+      <ExtensionSearchSection q={search} />
+
       <div className="mb-3 flex items-center justify-between text-sm text-gray-400">
         <div className="flex items-center gap-2">
           <span className="text-gray-500">Sort by</span>
@@ -166,6 +168,48 @@ export default function TracksPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExtensionSearchBlock({ extId, extName, q }: { extId: number; extName: string; q: string }) {
+  const { data, isLoading, error } = useExtensionSearch(extId, q);
+  if (isLoading) return <p className="text-xs text-gray-500">Searching {extName}…</p>;
+  if (error) return <ErrorText error={error} />;
+  if (!data || data.results.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">{extName}</p>
+      <ul className="space-y-1">
+        {data.results.map((r, i) => (
+          <li key={i} className="flex items-baseline gap-2 text-sm">
+            {r.url ? (
+              <a href={r.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                {r.label}
+              </a>
+            ) : (
+              <span className="text-gray-200">{r.label}</span>
+            )}
+            {r.sublabel && <span className="text-xs text-gray-500">{r.sublabel}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ExtensionSearchSection({ q }: { q: string }) {
+  const { data: extensions } = useExtensions();
+  const applicable = (extensions ?? []).filter(
+    (e) => e.capabilities.includes("search.augment") && e.status === "enabled"
+  );
+  if (applicable.length === 0 || q.trim().length <= 1) return null;
+  return (
+    <div className="mb-4 space-y-3 rounded-lg border border-edge bg-panel p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Extension results</p>
+      {applicable.map((e) => (
+        <ExtensionSearchBlock key={e.id} extId={e.id} extName={e.name} q={q} />
+      ))}
     </div>
   );
 }

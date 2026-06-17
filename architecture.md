@@ -253,6 +253,71 @@ Properties:
 
 ---
 
+### Extension
+
+A third-party HTTPS service registered by a user to enrich track metadata. Phonograph acts as an HTTP client only: it fetches a manifest, has the user approve permissions, and calls the extension on demand. Nothing the extension returns is executed — responses are parsed into strict schemas and applied only within the granted permissions. Audio is never sent or accepted.
+
+An extension declares one or more **capabilities** (what it can do) and requests **permissions** (what Phonograph data it may read or write). The user must explicitly approve the exact permission set before any data flows.
+
+**Capabilities:**
+
+| Capability | Description |
+|---|---|
+| `metadata.refresh` | Receive a single track's metadata and return enriched results (genre, year, streaming links). Triggered per-track from the track detail view. |
+| `streaming_links.resolve` | Reserved for future use. |
+| `enrichment.tags` | Reserved for future use. |
+
+**Permissions:**
+
+| Permission | Direction | What it gates |
+|---|---|---|
+| `read:tracks` | Phonograph → extension | Artist, title, album, year, ISRC for the target track |
+| `read:libraries` | Phonograph → extension | Library names and structure (reserved) |
+| `write:streaming_links` | extension → Phonograph | Add or update streaming-service URLs on the track (one per service, upsert) |
+| `write:track_metadata` | extension → Phonograph | Fill missing genre and year on the track's variants — non-destructive, never overwrites existing values |
+
+**Refresh data flow (per-track):**
+
+Phonograph sends to the extension:
+```json
+{
+  "api_version": "1.0",
+  "extension_id": <int>,
+  "granted_permissions": [...],
+  "tracks": [{ "ref": <track_id>, "artist": "...", "title": "...", "album": "...", "year": ..., "isrc": null }]
+}
+```
+The extension returns:
+```json
+{
+  "results": [{ "ref": <track_id>, "streaming_links": [...], "genre": "...", "year": ... }]
+}
+```
+Responses are parsed with strict schema validation (`extra="forbid"`). Per-item errors are skipped without aborting the call.
+
+**Constraints:**
+
+* One track is sent per refresh call (triggered from the track detail view).
+* Requests are HMAC-SHA256 signed; extensions should verify the signature.
+* A configurable cooldown (`EXTENSION_REFRESH_COOLDOWN_SECONDS`, default 30 s) limits call frequency per extension.
+* A configurable HTTP timeout (`EXTENSION_HTTP_TIMEOUT`, default 10 s) caps each outbound call.
+* All extension endpoint URLs are SSRF-checked before use.
+* Every install, enable, disable, refresh, and error is recorded as an audit event.
+
+Properties:
+
+* id
+* owner_id
+* name / version / author
+* manifest_url / endpoint_url
+* capabilities
+* requested_permissions / granted_permissions
+* status (`enabled` | `disabled` | `error`)
+* needs_reapproval
+* last_error / last_refresh_at
+
+---
+
 # Metadata Extraction Requirements
 
 The browser scanner must attempt to extract:
@@ -436,6 +501,20 @@ Analytics:
 * Attach links manually
 * Suggest existing links from database
 * Display service mappings
+
+---
+
+## Phase 11 - Extensions
+
+* Extension manifest discovery and validation
+* User-approved permission install flow
+* Per-track metadata refresh from the track detail view
+* Non-destructive genre / year enrichment
+* Streaming link upsert via extension results
+* HMAC-signed outbound requests
+* Audit event log per extension
+* Admin-configurable timeout, cooldown, and batch settings
+* SSRF protection on all extension endpoint URLs
 
 ---
 

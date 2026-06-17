@@ -1,6 +1,5 @@
 import {
   useReapproveExtension,
-  useRefreshExtension,
   useRemoveExtension,
   useSetExtensionEnabled,
   useUpdateExtension,
@@ -21,14 +20,12 @@ function StatusBadge({ status }: { status: ExtensionStatus }) {
 
 export default function ExtensionCard({ ext }: { ext: Extension }) {
   const setEnabled = useSetExtensionEnabled();
-  const refresh = useRefreshExtension();
   const update = useUpdateExtension();
   const reapprove = useReapproveExtension();
   const remove = useRemoveExtension();
 
   const busy =
     setEnabled.isPending ||
-    refresh.isPending ||
     update.isPending ||
     reapprove.isPending ||
     remove.isPending;
@@ -103,13 +100,6 @@ export default function ExtensionCard({ ext }: { ext: Extension }) {
 
       <div className="flex flex-wrap gap-2">
         <button
-          className="btn-primary"
-          onClick={() => refresh.mutate(ext.id)}
-          disabled={busy || !enabled || ext.needs_reapproval}
-        >
-          {refresh.isPending ? "Refreshing…" : "Refresh metadata"}
-        </button>
-        <button
           className="btn-ghost"
           onClick={() => setEnabled.mutate({ id: ext.id, enabled: !enabled })}
           disabled={busy}
@@ -128,7 +118,7 @@ export default function ExtensionCard({ ext }: { ext: Extension }) {
         </button>
       </div>
 
-      <ErrorText error={refresh.error || update.error || reapprove.error || remove.error} />
+      <ErrorText error={update.error || reapprove.error || remove.error} />
     </div>
   );
 }

@@ -53,11 +53,21 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // Non-JSON body — most likely an HTML error page from an upstream proxy (e.g. Cloudflare 502).
+    // Log enough context to diagnose, then fall through to the !res.ok branch below.
+    console.error(
+      `[api] non-JSON response: ${method} ${path} → HTTP ${res.status}`,
+      { contentType: res.headers.get("content-type"), body: text.slice(0, 200) },
+    );
+  }
 
   if (!res.ok) {
-    const detail =
-      (data && (data.detail || data.message)) || res.statusText || "Request failed";
+    const body = data as Record<string, unknown> | null;
+    const detail = (body && (body.detail || body.message)) || res.statusText || "Request failed";
     throw new ApiError(res.status, typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return data as T;
