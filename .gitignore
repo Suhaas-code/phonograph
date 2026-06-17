@@ -19,5 +19,6 @@ frontend/dist/
 .idea/
 .vscode/
 
-# Deploy log
+# Deploy + server logs
 deploy/deploy.log
+deploy/server.log

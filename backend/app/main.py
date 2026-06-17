@@ -2,9 +2,9 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
@@ -20,10 +20,10 @@ from app.api.routes import (
     tracks,
 )
 from app.config import settings
+from app.logging_config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
-)
+setup_logging()
+logger = logging.getLogger("phonograph")
 
 app = FastAPI(
     title="Phonograph API",
@@ -38,6 +38,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Log any unhandled error (with traceback) to deploy/server.log, return 500."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
