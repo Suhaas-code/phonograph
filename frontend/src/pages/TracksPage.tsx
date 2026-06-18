@@ -180,8 +180,12 @@ function ExtensionSearchBlock({ extId, extName, q }: { extId: number; extName: s
   if (isLoading) return <p className="text-xs text-gray-500">Searching {extName}…</p>;
   // 429 = rate limited (transient) — show a soft message, not a scary error banner.
   if (error) {
-    const is429 = (error as { status?: number }).status === 429;
-    return <p className="text-xs text-amber-400">{is429 ? `${extName}: too many requests, try again shortly.` : String(error)}</p>;
+    const apiErr = error as { status?: number; retryAfter?: number | null };
+    if (apiErr.status === 429) {
+      const suffix = apiErr.retryAfter ? ` Try again in ${apiErr.retryAfter}s.` : " Try again shortly.";
+      return <p className="text-xs text-amber-400">{extName}: too many requests.{suffix}</p>;
+    }
+    return <p className="text-xs text-amber-400">{String(error)}</p>;
   }
   if (!data || data.results.length === 0) return null;
   return (

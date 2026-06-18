@@ -60,9 +60,11 @@ def _map_service_errors(exc: Exception) -> HTTPException:
     if isinstance(exc, svc.ExtensionStateError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     if isinstance(exc, RateLimitError):
+        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None
         return HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="The external service is rate-limiting requests. Try again shortly.",
+            headers=headers,
         )
     if isinstance(exc, ExtensionHTTPError):
         return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))

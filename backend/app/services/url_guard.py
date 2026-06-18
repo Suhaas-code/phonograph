@@ -37,6 +37,10 @@ class RateLimitError(ExtensionHTTPError):
     """The external service returned HTTP 429 (rate limit). Transient — the
     extension should not be marked as errored."""
 
+    def __init__(self, message: str, retry_after: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
 
 def _is_blocked_ip(ip: str) -> bool:
     addr = ipaddress.ip_address(ip)
@@ -109,6 +113,14 @@ def _read_capped_json(response: httpx.Response) -> dict:
     return data
 
 
+def _parse_retry_after(value: str | None) -> int | None:
+    """Return the integer seconds from a Retry-After header value, or None."""
+    if not value:
+        return None
+    stripped = value.strip()
+    return int(stripped) if stripped.isdigit() else None
+
+
 def safe_get_json(url: str) -> dict:
     """GET *url* (SSRF-checked) and return a JSON object, or raise."""
     validate_outbound_url(url)
@@ -120,7 +132,10 @@ def safe_get_json(url: str) -> dict:
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 429:
-            raise RateLimitError("Service returned HTTP 429 (rate limited)") from exc
+            raise RateLimitError(
+                "Service returned HTTP 429 (rate limited)",
+                retry_after=_parse_retry_after(exc.response.headers.get("Retry-After")),
+            ) from exc
         raise ExtensionHTTPError(
             f"Service returned HTTP {exc.response.status_code}"
         ) from exc
@@ -155,7 +170,10 @@ def safe_post_json(
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 429:
-            raise RateLimitError("Service returned HTTP 429 (rate limited)") from exc
+            raise RateLimitError(
+                "Service returned HTTP 429 (rate limited)",
+                retry_after=_parse_retry_after(exc.response.headers.get("Retry-After")),
+            ) from exc
         raise ExtensionHTTPError(
             f"Service returned HTTP {exc.response.status_code}"
         ) from exc

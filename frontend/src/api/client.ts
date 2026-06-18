@@ -14,9 +14,11 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  retryAfter: number | null;
+  constructor(status: number, message: string, retryAfter: number | null = null) {
     super(message);
     this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -68,7 +70,9 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   if (!res.ok) {
     const body = data as Record<string, unknown> | null;
     const detail = (body && (body.detail || body.message)) || res.statusText || "Request failed";
-    throw new ApiError(res.status, typeof detail === "string" ? detail : JSON.stringify(detail));
+    const retryAfterRaw = res.status === 429 ? res.headers.get("Retry-After") : null;
+    const retryAfter = retryAfterRaw ? (parseInt(retryAfterRaw, 10) || null) : null;
+    throw new ApiError(res.status, typeof detail === "string" ? detail : JSON.stringify(detail), retryAfter);
   }
   return data as T;
 }
