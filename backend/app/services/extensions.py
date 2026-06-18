@@ -240,6 +240,7 @@ def reapprove(db: Session, ext: Extension, approved_permissions: list[str]) -> E
     ext.granted_permissions = list(ext.requested_permissions)
     ext.needs_reapproval = False
     _event(db, ext, "update", "permissions re-approved")
+    _handshake(db, ext, "/install", "reapprove")
     db.commit()
     db.refresh(ext)
     return ext
