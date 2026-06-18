@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import time
 from datetime import datetime, timezone
@@ -20,6 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 from app.models.extension import Extension, ExtensionEvent, ExtensionStatus
 from app.models.streaming_link import StreamingLink, StreamingService
 from app.models.track import Track
@@ -368,7 +371,8 @@ def refresh(db: Session, ext: Extension, track_id: int) -> RefreshSummary:
     for entry in raw.get("results", []) or []:
         try:
             item = RefreshResultItem.model_validate(entry)
-        except ValidationError:
+        except ValidationError as exc:
+            logger.warning("extension %s: dropped a refresh result: %s", ext.id, exc)
             skipped += 1
             continue
         track = tracks_by_id.get(item.ref)
@@ -433,11 +437,19 @@ def search(db: Session, ext: Extension, query: str) -> SearchSummary:
         db.commit()
         raise
 
+    raw_results = raw.get("results", []) or []
     results: list[SearchResultItem] = []
-    for entry in raw.get("results", []) or []:
+    for entry in raw_results:
         try:
             results.append(SearchResultItem.model_validate(entry))
-        except ValidationError:
+        except ValidationError as exc:
+            logger.warning("extension %s: dropped a search result: %s", ext.id, exc)
             continue
+    if raw_results and not results:
+        logger.warning(
+            "extension %s: all %d search result(s) were dropped during parsing",
+            ext.id,
+            len(raw_results),
+        )
 
     return SearchSummary(extension_id=ext.id, results=results)

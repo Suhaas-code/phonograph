@@ -1,8 +1,10 @@
 """Extension framework schemas.
 
-``ManifestModel`` and the ``Refresh*`` response models are parsed with
-``extra="forbid"`` — an extension cannot smuggle unexpected fields (e.g. anything
-audio-related) past the boundary. The ``*Out`` models deliberately omit
+``ManifestModel`` is parsed with ``extra="forbid"`` so an extension cannot smuggle
+unexpected fields past the boundary at install time. The /refresh and /search
+*response* item models use ``extra="ignore"`` instead: we only read the fields we
+model, and a service adding its own extra fields must not cause us to silently
+discard otherwise-valid results. The ``*Out`` models deliberately omit
 ``shared_secret``.
 """
 from datetime import datetime
@@ -146,14 +148,14 @@ class RefreshSummary(BaseModel):
 # The extension's /refresh response (parsed strictly)
 # --------------------------------------------------------------------------- #
 class EnrichedStreamingLink(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     service: str
     url: str = Field(min_length=1, max_length=2000)
 
 
 class RefreshResultItem(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     ref: int
     streaming_links: list[EnrichedStreamingLink] = Field(default_factory=list)
@@ -162,7 +164,7 @@ class RefreshResultItem(BaseModel):
 
 
 class RefreshResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     results: list[RefreshResultItem] = Field(default_factory=list)
 
@@ -171,7 +173,7 @@ class RefreshResponse(BaseModel):
 # The extension's /search response (parsed strictly)
 # --------------------------------------------------------------------------- #
 class SearchResultItem(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     label: str = Field(min_length=1, max_length=300)
     sublabel: str | None = Field(default=None, max_length=300)
@@ -179,7 +181,7 @@ class SearchResultItem(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     results: list[SearchResultItem] = Field(default_factory=list)
 
