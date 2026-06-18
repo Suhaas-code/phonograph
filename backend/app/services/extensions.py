@@ -40,6 +40,7 @@ from app.schemas.extension import (
 from app.services.url_guard import (
     ExtensionHTTPError,
     OutboundURLError,
+    RateLimitError,
     safe_get_json,
     safe_post_json,
     validate_outbound_url,
@@ -430,6 +431,10 @@ def search(db: Session, ext: Extension, query: str) -> SearchSummary:
         raw = safe_post_json(
             _endpoint(ext, "/search"), body=body, headers=_signed_headers(ext, body)
         )
+    except RateLimitError:
+        # Transient rate limit — do not mark the extension as errored.
+        logger.warning("extension %s: search rate-limited (429)", ext.id)
+        raise
     except (ExtensionHTTPError, OutboundURLError) as exc:
         ext.status = ExtensionStatus.error
         ext.last_error = str(exc)

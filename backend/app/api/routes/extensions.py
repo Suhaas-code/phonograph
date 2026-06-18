@@ -25,7 +25,7 @@ from app.schemas.extension import (
     SearchSummary,
 )
 from app.services import extensions as svc
-from app.services.url_guard import ExtensionHTTPError
+from app.services.url_guard import ExtensionHTTPError, RateLimitError
 
 router = APIRouter(prefix="/extensions", tags=["extensions"])
 
@@ -59,6 +59,11 @@ def _map_service_errors(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     if isinstance(exc, svc.ExtensionStateError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    if isinstance(exc, RateLimitError):
+        return HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The external service is rate-limiting requests. Try again shortly.",
+        )
     if isinstance(exc, ExtensionHTTPError):
         return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
     raise exc

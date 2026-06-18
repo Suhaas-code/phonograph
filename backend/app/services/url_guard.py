@@ -33,6 +33,11 @@ class ExtensionHTTPError(RuntimeError):
     """An outbound call failed or returned an unusable response."""
 
 
+class RateLimitError(ExtensionHTTPError):
+    """The external service returned HTTP 429 (rate limit). Transient — the
+    extension should not be marked as errored."""
+
+
 def _is_blocked_ip(ip: str) -> bool:
     addr = ipaddress.ip_address(ip)
     return (
@@ -114,6 +119,8 @@ def safe_get_json(url: str) -> dict:
             response = client.get(url, headers={"Accept": "application/json"})
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise RateLimitError("Service returned HTTP 429 (rate limited)") from exc
         raise ExtensionHTTPError(
             f"Service returned HTTP {exc.response.status_code}"
         ) from exc
@@ -147,6 +154,8 @@ def safe_post_json(
             )
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise RateLimitError("Service returned HTTP 429 (rate limited)") from exc
         raise ExtensionHTTPError(
             f"Service returned HTTP {exc.response.status_code}"
         ) from exc

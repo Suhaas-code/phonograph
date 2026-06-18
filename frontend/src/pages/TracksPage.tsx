@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useCollections, useExtensionSearch, useExtensions, useLibraries, useTracks } from "../api/hooks";
 import AlphabetRail from "../components/AlphabetRail";
 import { TrackColumnsHeader, TrackRow } from "../components/track";
-import { ErrorText, Spinner, Empty, PageHeader } from "../components/ui";
+import { Spinner, Empty, PageHeader } from "../components/ui";
+import { useDebounce } from "../lib/useDebounce";
 import { useAlphabetScroll } from "../lib/useAlphabetScroll";
 import type { TrackListItem } from "../types";
 
@@ -33,6 +34,8 @@ export default function TracksPage() {
   const collections = useCollections();
 
   const [search, setSearch] = useState("");
+  // Debounce before hitting the extension service — avoids a request per keystroke.
+  const debouncedSearch = useDebounce(search, 400);
   const [libraryId, setLibraryId] = useState<number | "">("");
   const [artist, setArtist] = useState("");
   const [collectionId, setCollectionId] = useState<number | "">("");
@@ -120,7 +123,7 @@ export default function TracksPage() {
         </select>
       </div>
 
-      <ExtensionSearchSection q={search} />
+      <ExtensionSearchSection q={debouncedSearch} />
 
       <div className="mb-3 flex items-center justify-between text-sm text-gray-400">
         <div className="flex items-center gap-2">
@@ -175,7 +178,11 @@ export default function TracksPage() {
 function ExtensionSearchBlock({ extId, extName, q }: { extId: number; extName: string; q: string }) {
   const { data, isLoading, error } = useExtensionSearch(extId, q);
   if (isLoading) return <p className="text-xs text-gray-500">Searching {extName}…</p>;
-  if (error) return <ErrorText error={error} />;
+  // 429 = rate limited (transient) — show a soft message, not a scary error banner.
+  if (error) {
+    const is429 = (error as { status?: number }).status === 429;
+    return <p className="text-xs text-amber-400">{is429 ? `${extName}: too many requests, try again shortly.` : String(error)}</p>;
+  }
   if (!data || data.results.length === 0) return null;
   return (
     <div>
