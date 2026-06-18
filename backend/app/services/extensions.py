@@ -24,7 +24,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 from app.models.extension import Extension, ExtensionEvent, ExtensionStatus
-from app.models.streaming_link import StreamingLink, StreamingService
+from app.models.streaming_link import StreamingLink, normalize_service
 from app.models.track import Track
 from app.models.user import User
 from app.schemas.extension import (
@@ -282,14 +282,14 @@ def _build_request_tracks(ext: Extension, tracks: list[Track]) -> list[dict]:
 
 
 def _apply_streaming_links(db: Session, track: Track, item: RefreshResultItem) -> int:
-    """Upsert streaming links (one per service). Unknown services are skipped."""
+    """Upsert streaming links (one per provider). Any provider is accepted —
+    well-known or custom — so all surfaced links are stored."""
     written = 0
     by_service = {link.service: link for link in track.streaming_links}
     for enriched in item.streaming_links:
-        try:
-            service = StreamingService(enriched.service)
-        except ValueError:
-            continue  # extension proposed a service we don't model
+        service = normalize_service(enriched.service)
+        if not service:
+            continue
         existing = by_service.get(service)
         if existing is not None:
             if existing.url != enriched.url:

@@ -1,12 +1,21 @@
 """Streaming link schemas."""
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.streaming_link import StreamingService
+from app.models.streaming_link import normalize_service
 
 
 class StreamingLinkCreate(BaseModel):
-    service: StreamingService
-    url: str
+    # Any provider key: a well-known service or a custom one the user types.
+    service: str = Field(min_length=1, max_length=60)
+    url: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("service")
+    @classmethod
+    def _normalize(cls, v: str) -> str:
+        normalized = normalize_service(v)
+        if not normalized:
+            raise ValueError("Provider name is required")
+        return normalized
 
 
 class StreamingLinkOut(BaseModel):
@@ -14,12 +23,12 @@ class StreamingLinkOut(BaseModel):
 
     id: int
     track_id: int
-    service: StreamingService
+    service: str
     url: str
 
 
 class StreamingLinkSuggestion(BaseModel):
-    service: StreamingService
+    service: str
     url: str
     source_track_id: int
     source_artist: str

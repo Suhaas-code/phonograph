@@ -62,7 +62,7 @@ export interface VariantSummary {
 export interface StreamingLink {
   id: number;
   track_id: number;
-  service: StreamingService;
+  service: string;
   url: string;
 }
 
@@ -146,7 +146,7 @@ export interface SharedCollectionView {
 }
 
 export interface StreamingLinkSuggestion {
-  service: StreamingService;
+  service: string;
   url: string;
   source_track_id: number;
   source_artist: string;

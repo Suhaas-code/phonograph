@@ -24,18 +24,13 @@ import {
   formatBytes,
   formatCodec,
   formatDuration,
+  serviceLabel,
   SERVICE_LABELS,
 } from "../lib/format";
-import type { StreamingService, TrackDetail } from "../types";
+import type { TrackDetail } from "../types";
 
-const SERVICES: StreamingService[] = [
-  "spotify",
-  "tidal",
-  "qobuz",
-  "deezer",
-  "amazon_music",
-  "youtube_music",
-];
+// Well-known providers offered as autocomplete; any custom name is allowed too.
+const KNOWN_SERVICES = Object.keys(SERVICE_LABELS);
 
 export default function TrackDetailPage() {
   const { id } = useParams();
@@ -325,8 +320,20 @@ function StreamingLinksCard({ trackId }: { trackId: number }) {
   const suggestions = useLinkSuggestions(trackId);
   const add = useAddStreamingLink();
   const del = useDeleteStreamingLink();
-  const [service, setService] = useState<StreamingService>("spotify");
+  const [service, setService] = useState("");
   const [url, setUrl] = useState("");
+
+  function submit() {
+    const typed = service.trim();
+    if (!typed || !url.trim()) return;
+    // If the user picked/typed a known provider's label, store its canonical key.
+    const known = KNOWN_SERVICES.find(
+      (k) => k === typed.toLowerCase() || SERVICE_LABELS[k].toLowerCase() === typed.toLowerCase()
+    );
+    add.mutate({ trackId, service: known ?? typed, url });
+    setService("");
+    setUrl("");
+  }
 
   return (
     <div className="card">
@@ -336,7 +343,7 @@ function StreamingLinksCard({ trackId }: { trackId: number }) {
           {links.data.map((l) => (
             <li key={l.id} className="flex items-center justify-between gap-2">
               <a href={l.url} target="_blank" rel="noreferrer" className="truncate text-accent hover:underline">
-                {SERVICE_LABELS[l.service]}
+                {serviceLabel(l.service)}
               </a>
               <button
                 className="text-xs text-red-400 hover:underline"
@@ -352,17 +359,18 @@ function StreamingLinksCard({ trackId }: { trackId: number }) {
       )}
 
       <div className="space-y-2">
-        <select
+        <input
           className="input"
+          list="known-streaming-services"
+          placeholder="Provider (e.g. Spotify, or any custom name)"
           value={service}
-          onChange={(e) => setService(e.target.value as StreamingService)}
-        >
-          {SERVICES.map((s) => (
-            <option key={s} value={s}>
-              {SERVICE_LABELS[s]}
-            </option>
+          onChange={(e) => setService(e.target.value)}
+        />
+        <datalist id="known-streaming-services">
+          {KNOWN_SERVICES.map((s) => (
+            <option key={s} value={SERVICE_LABELS[s]} />
           ))}
-        </select>
+        </datalist>
         <input
           className="input"
           placeholder="https://…"
@@ -372,11 +380,8 @@ function StreamingLinksCard({ trackId }: { trackId: number }) {
         <ErrorText error={add.error} />
         <button
           className="btn-primary w-full"
-          disabled={!url || add.isPending}
-          onClick={() => {
-            add.mutate({ trackId, service, url });
-            setUrl("");
-          }}
+          disabled={!service.trim() || !url.trim() || add.isPending}
+          onClick={submit}
         >
           Add link
         </button>
@@ -389,7 +394,7 @@ function StreamingLinksCard({ trackId }: { trackId: number }) {
             {suggestions.data.map((s, i) => (
               <li key={i} className="flex items-center justify-between gap-2">
                 <span className="truncate text-gray-300">
-                  {SERVICE_LABELS[s.service]}{" "}
+                  {serviceLabel(s.service)}{" "}
                   <span className="text-xs text-gray-500">from {s.source_artist}</span>
                 </span>
                 <button

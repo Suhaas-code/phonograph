@@ -20,7 +20,6 @@ import type {
   SharedCollectionView,
   StreamingLink,
   StreamingLinkSuggestion,
-  StreamingService,
   Track,
   TrackDetail,
   TrackListItem,
@@ -345,7 +344,7 @@ export const useAddStreamingLink = () => {
       url,
     }: {
       trackId: number;
-      service: StreamingService;
+      service: string;
       url: string;
     }) =>
       api<StreamingLink>(`/tracks/${trackId}/streaming-links`, {

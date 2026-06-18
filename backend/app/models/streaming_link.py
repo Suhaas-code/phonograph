@@ -1,20 +1,30 @@
-"""StreamingLink model: external service pointer attached to a Track."""
-import enum
+"""StreamingLink model: external service pointer attached to a Track.
 
-from sqlalchemy import Enum, ForeignKey, String, Text, UniqueConstraint
+``service`` is a free-form provider key so links from any provider can be stored
+— the platform's well-known services (below) plus extension-supplied or
+user-typed custom providers.
+"""
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.mixins import TimestampMixin
 
+# Well-known services we show friendly labels/suggestions for. Not a restriction:
+# any provider key may be stored.
+KNOWN_SERVICES = [
+    "spotify",
+    "tidal",
+    "qobuz",
+    "deezer",
+    "amazon_music",
+    "youtube_music",
+]
 
-class StreamingService(str, enum.Enum):
-    spotify = "spotify"
-    tidal = "tidal"
-    qobuz = "qobuz"
-    deezer = "deezer"
-    amazon_music = "amazon_music"
-    youtube_music = "youtube_music"
+
+def normalize_service(value: str) -> str:
+    """Canonical provider key: trimmed, lower-cased, single-spaced."""
+    return " ".join((value or "").strip().lower().split())
 
 
 class StreamingLink(Base, TimestampMixin):
@@ -27,9 +37,7 @@ class StreamingLink(Base, TimestampMixin):
     track_id: Mapped[int] = mapped_column(
         ForeignKey("tracks.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    service: Mapped[StreamingService] = mapped_column(
-        Enum(StreamingService, name="streaming_service"), nullable=False
-    )
+    service: Mapped[str] = mapped_column(String(60), nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
 
     track = relationship("Track", back_populates="streaming_links")

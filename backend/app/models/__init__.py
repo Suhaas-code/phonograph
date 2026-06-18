@@ -4,7 +4,7 @@ from app.models.collection import Collection, CollectionItem, CollectionType
 from app.models.extension import Extension, ExtensionEvent, ExtensionStatus
 from app.models.library import Library
 from app.models.share import Share, SharePermission
-from app.models.streaming_link import StreamingLink, StreamingService
+from app.models.streaming_link import StreamingLink
 from app.models.track import Track
 from app.models.user import ApprovalStatus, User, UserRole
 from app.models.variant import Variant
@@ -20,7 +20,6 @@ __all__ = [
     "CollectionItem",
     "CollectionType",
     "StreamingLink",
-    "StreamingService",
     "Share",
     "SharePermission",
     "BugReport",

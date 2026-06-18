@@ -53,3 +53,13 @@ export const SERVICE_LABELS: Record<string, string> = {
   amazon_music: "Amazon Music",
   youtube_music: "YouTube Music",
 };
+
+// Friendly label for any provider key — known ones get their proper name,
+// custom/extension ones are title-cased from the stored key.
+export function serviceLabel(service: string): string {
+  if (SERVICE_LABELS[service]) return SERVICE_LABELS[service];
+  return service
+    .split(/[_\s]+/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
