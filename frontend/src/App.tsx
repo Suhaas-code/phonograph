@@ -19,6 +19,7 @@ import BugReportsPage from "./pages/BugReportsPage";
 import BugReportDetailPage from "./pages/BugReportDetailPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
+import HealthPage from "./pages/HealthPage";
 
 function Loading() {
   return <div className="flex h-full items-center justify-center text-gray-400">Loading…</div>;
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/bugs" element={<BugReportsPage />} />
         <Route path="/bugs/:id" element={<BugReportDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/health" element={<HealthPage />} />
         {user.role === "admin" && <Route path="/admin" element={<AdminPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -1,5 +1,31 @@
 // Shared API types mirroring the backend Pydantic schemas.
 
+export interface HealthCheck {
+  status: "pass" | "fail";
+  latency_ms?: number | null;
+}
+
+export interface HealthStatus {
+  status: "healthy" | "degraded" | "unhealthy";
+  score: number;
+  checks: {
+    database: HealthCheck;
+    internet: HealthCheck;
+  };
+  error_count_30min: number;
+  computed_at: string;
+}
+
+export interface HealthRecord {
+  score: number;
+  status: "healthy" | "degraded" | "unhealthy";
+  db_ok: boolean;
+  internet_ok: boolean;
+  latency_ms: number | null;
+  error_count: number;
+  computed_at: string;
+}
+
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type UserRole = "user" | "admin";
 export type CollectionType = "user" | "album" | "tag" | "shared";

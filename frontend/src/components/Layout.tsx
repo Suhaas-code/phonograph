@@ -10,6 +10,7 @@ const NAV = [
   { to: "/sharing", label: "Sharing" },
   { to: "/analytics", label: "Analytics" },
   { to: "/bugs", label: "Report Bug" },
+  { to: "/health", label: "Health" },
   { to: "/settings", label: "Settings" },
 ];
 

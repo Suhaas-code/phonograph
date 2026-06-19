@@ -8,6 +8,8 @@ import type {
   CollectionDetail,
   CollectionType,
   Extension,
+  HealthRecord,
+  HealthStatus,
   ExtensionDetail,
   Library,
   LibraryStats,
@@ -641,3 +643,17 @@ export const useLikeTrack = () => {
     },
   });
 };
+
+// --- Health ---
+export const useHealth = () =>
+  useQuery({
+    queryKey: ["health"],
+    queryFn: () => api<HealthStatus>("/health", { auth: false }),
+    refetchInterval: 60_000,
+  });
+
+export const useHealthHistory = () =>
+  useQuery({
+    queryKey: ["health", "history"],
+    queryFn: () => api<HealthRecord[]>("/health/history"),
+  });

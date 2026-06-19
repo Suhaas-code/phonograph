@@ -1,5 +1,6 @@
 """SQLAlchemy ORM models."""
 from app.models.bug_report import BugAttachment, BugMessage, BugReport, BugStatus
+from app.models.health import HealthError, HealthRecord
 from app.models.collection import Collection, CollectionItem, CollectionType
 from app.models.extension import Extension, ExtensionEvent, ExtensionStatus
 from app.models.library import Library
@@ -29,4 +30,6 @@ __all__ = [
     "Extension",
     "ExtensionEvent",
     "ExtensionStatus",
+    "HealthRecord",
+    "HealthError",
 ]

@@ -13,6 +13,7 @@ from app.api.routes import (
     bugs,
     collections,
     extensions,
+    health,
     libraries,
     search,
     sharing,
@@ -44,7 +45,21 @@ app.add_middleware(
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Log any unhandled error (with traceback) to deploy/server.log, return 500."""
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    _record_health_error(str(request.url.path), str(exc))
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
+def _record_health_error(path: str, message: str) -> None:
+    """Insert a HealthError row; silently ignore failures so error handler stays stable."""
+    try:
+        from app.database import SessionLocal
+        from app.models.health import HealthError
+
+        with SessionLocal() as db:
+            db.add(HealthError(path=path, message=message[:500]))
+            db.commit()
+    except Exception:
+        pass
 
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
@@ -57,11 +72,7 @@ api.include_router(streaming_links.router)
 api.include_router(search.router)
 api.include_router(bugs.router)
 api.include_router(extensions.router)
-
-
-@api.get("/health", tags=["meta"])
-def health() -> dict:
-    return {"status": "ok"}
+api.include_router(health.router)
 
 
 @api.get("/config", tags=["meta"])
